@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
-const { authMiddleware, adminOnly } = require("../middleware/auth");
+const { authMiddleware, mainAdminOnly } = require("../middleware/auth");
 
 // POST /users/register — called after Firebase phone OTP success
 // Flutter sends this after first login to save user profile in Firestore
@@ -27,6 +27,8 @@ router.post("/register", authMiddleware, async (req, res) => {
       phone: phone || "",
       email: req.user.email || "",
       role: "resident", // default role
+      residentType: "owner", // owner | tenant | guest
+      maintenanceExempt: false,
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     };
 
@@ -50,7 +52,7 @@ router.get("/me", authMiddleware, async (req, res) => {
 });
 
 // GET /users — admin only: list all users
-router.get("/", authMiddleware, adminOnly, async (req, res) => {
+router.get("/", authMiddleware, mainAdminOnly, async (req, res) => {
   try {
     const db = getDb();
     const snap = await db.collection("users").orderBy("flatNumber", "asc").get();
@@ -61,27 +63,30 @@ router.get("/", authMiddleware, adminOnly, async (req, res) => {
   }
 });
 
-// PATCH /users/:uid/role — superadmin only: promote to admin
-// Body: { role }  role = "resident" | "admin"
-router.patch("/:uid/role", authMiddleware, async (req, res) => {
+// PATCH /users/:uid — main_admin can edit any user's details
+router.patch("/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
   try {
-    if (req.user.role !== "superadmin")
-      return res.status(403).json({ error: "Superadmin access required" });
-
-    const { role } = req.body;
-    if (!["resident", "admin"].includes(role))
-      return res.status(400).json({ error: "role must be resident or admin" });
-
+    const { name, flatNumber, blockName, role, status, residentType, maintenanceExempt } = req.body;
     const db = getDb();
     const admin = getAdmin();
+    const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
 
-    // Update Firestore
-    await db.collection("users").doc(req.params.uid).update({ role });
+    if (name)       updates.name = name;
+    if (flatNumber) updates.flatNumber = flatNumber;
+    if (blockName !== undefined) updates.blockName = blockName;
+    if (role)       updates.role = role;
+    if (status)     updates.status = status;
+    if (residentType) updates.residentType = residentType;
+    if (maintenanceExempt !== undefined) updates.maintenanceExempt = maintenanceExempt;
 
-    // Update Firebase Auth custom claims (so JWT reflects new role)
-    await admin.auth().setCustomUserClaims(req.params.uid, { role });
+    await db.collection("users").doc(req.params.uid).update(updates);
 
-    res.json({ message: `User role updated to ${role}` });
+    // If role changed, update JWT claims too
+    if (role) {
+      await admin.auth().setCustomUserClaims(req.params.uid, { role });
+    }
+
+    res.json({ message: "User updated successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import '../../app/theme.dart';
-import '../../services/auth_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/auth_provider.dart';
 
-class LoginScreen extends StatefulWidget {
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen>
+class _LoginScreenState extends ConsumerState<LoginScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
@@ -49,15 +50,14 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _loading = true);
     try {
-      final result = await AuthService.login(
-        phone: '+91$phone',
-        password: pass,
+      await ref.read(authProvider.notifier).login(
+        '+91$phone',
+        pass,
       );
       if (!mounted) return;
-      final role = result['user']?['role'] ?? 'resident';
       Navigator.pushNamedAndRemoveUntil(
         context,
-        role == 'admin' ? '/admin' : '/home',
+        '/home',
         (_) => false,
       );
     } catch (e) {
@@ -77,12 +77,11 @@ class _LoginScreenState extends State<LoginScreen>
 
     setState(() => _loading = true);
     try {
-      final result = await AuthService.login(phone: user, password: pass);
+      await ref.read(authProvider.notifier).login(user, pass);
       if (!mounted) return;
-      final role = result['user']?['role'] ?? 'resident';
       Navigator.pushNamedAndRemoveUntil(
         context,
-        role == 'admin' ? '/admin' : '/home',
+        '/home',
         (_) => false,
       );
     } catch (e) {

@@ -1,4 +1,6 @@
-// Stub: Replace with real Claude / Gemini API calls
+import 'dart:convert';
+import 'api_service.dart';
+
 class AiService {
   final List<Map<String, String>> _history = [];
 
@@ -7,13 +9,27 @@ class AiService {
   Future<String> sendMessage(String userMessage) async {
     _history.add({'role': 'user', 'content': userMessage});
 
-    // TODO: call Claude/Gemini API with society context + history
-    await Future.delayed(const Duration(milliseconds: 700));
+    try {
+      final res = await ApiService.post('/ai/chat', {
+        'message': userMessage,
+        'history': _history.sublist(0, _history.length - 1),
+      });
 
-    const reply =
-        'Is baare mein aur jaankari ke liye admin se contact karein ya Rules section check karein. Koi aur sawaal ho toh poochein!';
-    _history.add({'role': 'assistant', 'content': reply});
-    return reply;
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final reply = data['reply'] ?? 'No reply from server';
+        _history.add({'role': 'assistant', 'content': reply});
+        return reply;
+      } else {
+        final error = 'Server Error: ${res.body}';
+        _history.add({'role': 'assistant', 'content': error});
+        return error;
+      }
+    } catch (e) {
+      final error = 'Connection Error: $e';
+      _history.add({'role': 'assistant', 'content': error});
+      return error;
+    }
   }
 
   void clearHistory() => _history.clear();

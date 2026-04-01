@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
-const { authMiddleware, adminOnly } = require("../middleware/auth");
+const { authMiddleware, canManageContent } = require("../middleware/auth");
 
 // ─── RULES ────────────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
 // POST /rules — admin only: add a rule
 // Body: { title, content, category, order? }
-router.post("/", authMiddleware, adminOnly, async (req, res) => {
+router.post("/", authMiddleware, canManageContent, async (req, res) => {
   try {
     const { title, content, category = "general", order = 99 } = req.body;
     if (!title || !content)
@@ -42,7 +42,7 @@ router.post("/", authMiddleware, adminOnly, async (req, res) => {
 });
 
 // PUT /rules/:id — admin only: update a rule
-router.put("/:id", authMiddleware, adminOnly, async (req, res) => {
+router.put("/:id", authMiddleware, canManageContent, async (req, res) => {
   try {
     const { title, content, category, order } = req.body;
     const db = getDb();
@@ -60,7 +60,7 @@ router.put("/:id", authMiddleware, adminOnly, async (req, res) => {
 });
 
 // DELETE /rules/:id — admin only
-router.delete("/:id", authMiddleware, adminOnly, async (req, res) => {
+router.delete("/:id", authMiddleware, canManageContent, async (req, res) => {
   try {
     const db = getDb();
     await db.collection("rules").doc(req.params.id).delete();

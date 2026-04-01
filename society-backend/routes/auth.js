@@ -3,17 +3,10 @@ const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { getDb, getAdmin } = require("../config/firebase");
-const { authMiddleware, adminOnly } = require("../middleware/auth");
+const { authMiddleware, adminOnly, mainAdminOnly } = require("../middleware/auth");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "30d";
-
-// ─── HARDCODED ADMIN CREDENTIALS ─────────────────────────────────────────────
-// Username: admin  |  Password: 123123
-// Change ADMIN_PASSWORD_HASH by running:
-//   node -e "const b=require('bcryptjs');b.hash('123123',10).then(console.log)"
-const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "123123"; // plain — compared via bcrypt or direct
 
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
 // POST /auth/register
@@ -52,6 +45,8 @@ router.post("/register", async (req, res) => {
             role: "resident",
             status: "pending",       // pending | approved | rejected
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+            residentType: "owner",
+            maintenanceExempt: false,
             approvedAt: null,
             approvedBy: null,
         };
@@ -80,40 +75,15 @@ router.post("/register", async (req, res) => {
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 // POST /auth/login
-// Body: { phone, password }           ← for residents (phone number)
-//   OR  { phone: "admin", password }  ← for admin (username + password)
+// Body: { phone, password }
 router.post("/login", async (req, res) => {
     try {
         const { phone, password } = req.body;
         if (!phone || !password) {
-            return res.status(400).json({ error: "phone/username and password are required" });
+            return res.status(400).json({ error: "phone and password are required" });
         }
 
-        // ── ADMIN LOGIN (hardcoded) ──────────────────────────────────────────────
-        if (phone.trim().toLowerCase() === ADMIN_USERNAME) {
-            if (password !== ADMIN_PASSWORD) {
-                return res.status(401).json({ error: "Invalid admin credentials" });
-            }
-
-            const token = jwt.sign(
-                { uid: "admin-001", phone: "admin", role: "admin", name: "Society Admin" },
-                JWT_SECRET,
-                { expiresIn: JWT_EXPIRES_IN }
-            );
-
-            return res.json({
-                token,
-                user: {
-                    uid: "admin-001",
-                    name: "Society Admin",
-                    phone: "admin",
-                    role: "admin",
-                    status: "approved",
-                },
-            });
-        }
-
-        // ── RESIDENT LOGIN ───────────────────────────────────────────────────────
+        // ── NATIVE LOGIN (Firebase users collection) ──────────────────────────────
         const cleanPhone = phone.replace(/\s+/g, "");
         const db = getDb();
 
@@ -160,7 +130,7 @@ router.post("/login", async (req, res) => {
 
 // ─── ADMIN: GET PENDING REQUESTS ──────────────────────────────────────────────
 // GET /auth/pending
-router.get("/pending", authMiddleware, adminOnly, async (req, res) => {
+router.get("/pending", authMiddleware, mainAdminOnly, async (req, res) => {
     try {
         const db = getDb();
         const snap = await db
@@ -182,7 +152,7 @@ router.get("/pending", authMiddleware, adminOnly, async (req, res) => {
 
 // ─── ADMIN: APPROVE USER ──────────────────────────────────────────────────────
 // POST /auth/approve/:uid
-router.post("/approve/:uid", authMiddleware, adminOnly, async (req, res) => {
+router.post("/approve/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
     try {
         const db = getDb();
         const userRef = db.collection("users").doc(req.params.uid);
@@ -219,7 +189,7 @@ router.post("/approve/:uid", authMiddleware, adminOnly, async (req, res) => {
 // ─── ADMIN: REJECT USER ───────────────────────────────────────────────────────
 // POST /auth/reject/:uid
 // Body: { reason? }
-router.post("/reject/:uid", authMiddleware, adminOnly, async (req, res) => {
+router.post("/reject/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
     try {
         const { reason } = req.body;
         const db = getDb();
@@ -261,7 +231,7 @@ router.get("/notifications", authMiddleware, async (req, res) => {
         const db = getDb();
         let snap;
 
-        if (req.user.role === "admin" || req.user.role === "superadmin") {
+        if (["admin", "superadmin", "main_admin", "treasurer", "secretary"].includes(req.user.role)) {
             snap = await db
                 .collection("notifications")
                 .where("targetRole", "==", "admin")

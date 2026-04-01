@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
-const { authMiddleware, adminOnly } = require("../middleware/auth");
+const { authMiddleware, canManageContent } = require("../middleware/auth");
 
 // GET /events — upcoming events
 router.get("/", authMiddleware, async (req, res) => {
@@ -17,7 +17,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
 // POST /events — admin only: create an event
 // Body: { title, description, date (ISO string), location? }
-router.post("/", authMiddleware, adminOnly, async (req, res) => {
+router.post("/", authMiddleware, canManageContent, async (req, res) => {
   try {
     const { title, description, date, location } = req.body;
     if (!title || !date)
@@ -40,7 +40,7 @@ router.post("/", authMiddleware, adminOnly, async (req, res) => {
 });
 
 // DELETE /events/:id — admin only
-router.delete("/:id", authMiddleware, adminOnly, async (req, res) => {
+router.delete("/:id", authMiddleware, canManageContent, async (req, res) => {
   try {
     const db = getDb();
     await db.collection("events").doc(req.params.id).delete();

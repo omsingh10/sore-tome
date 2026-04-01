@@ -4,8 +4,10 @@ class UserModel {
   final String phone;
   final String flatNumber;
   final String block;
-  final String societyName;
-  final bool isAdmin;
+  final String role;
+  final String status;
+  final String residentType;
+  final bool maintenanceExempt;
 
   UserModel({
     required this.id,
@@ -13,31 +15,37 @@ class UserModel {
     required this.phone,
     required this.flatNumber,
     required this.block,
-    required this.societyName,
-    this.isAdmin = false,
+    required this.role,
+    required this.status,
+    this.residentType = 'owner',
+    this.maintenanceExempt = false,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
     return UserModel(
-      id: map['id'] ?? '',
+      id: map['uid'] ?? map['id'] ?? '',
       name: map['name'] ?? '',
       phone: map['phone'] ?? '',
       flatNumber: map['flatNumber'] ?? '',
-      block: map['block'] ?? '',
-      societyName: map['societyName'] ?? '',
-      isAdmin: map['isAdmin'] ?? false,
+      block: map['blockName'] ?? map['block'] ?? '',
+      role: map['role'] ?? 'resident',
+      status: map['status'] ?? 'pending',
+      residentType: map['residentType'] ?? 'owner',
+      maintenanceExempt: map['maintenanceExempt'] ?? false,
     );
   }
 
   Map<String, dynamic> toMap() {
     return {
-      'id': id,
+      'uid': id,
       'name': name,
       'phone': phone,
       'flatNumber': flatNumber,
-      'block': block,
-      'societyName': societyName,
-      'isAdmin': isAdmin,
+      'blockName': block,
+      'role': role,
+      'status': status,
+      'residentType': residentType,
+      'maintenanceExempt': maintenanceExempt,
     };
   }
 }

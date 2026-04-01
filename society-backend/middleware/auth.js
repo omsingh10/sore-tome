@@ -29,12 +29,35 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// Only allow admins and superadmins
+// Only allow admins and superadmins (legacy helper)
 function adminOnly(req, res, next) {
-  if (req.user?.role !== "admin" && req.user?.role !== "superadmin") {
+  if (req.user?.role !== "admin" && req.user?.role !== "superadmin" && req.user?.role !== "main_admin") {
     return res.status(403).json({ error: "Admin access required" });
   }
   next();
 }
 
-module.exports = { authMiddleware, adminOnly };
+function mainAdminOnly(req, res, next) {
+  if (req.user?.role !== "main_admin") {
+    return res.status(403).json({ error: "Main admin access required" });
+  }
+  next();
+}
+
+function canManageFunds(req, res, next) {
+  const allowed = ["main_admin", "treasurer"];
+  if (!allowed.includes(req.user?.role)) {
+    return res.status(403).json({ error: "Treasurer or admin access required" });
+  }
+  next();
+}
+
+function canManageContent(req, res, next) {
+  const allowed = ["main_admin", "secretary"];
+  if (!allowed.includes(req.user?.role)) {
+    return res.status(403).json({ error: "Secretary or admin access required" });
+  }
+  next();
+}
+
+module.exports = { authMiddleware, adminOnly, mainAdminOnly, canManageFunds, canManageContent };

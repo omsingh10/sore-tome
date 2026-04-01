@@ -25,6 +25,7 @@ app.use("/funds", require("./routes/funds"));
 app.use("/rules", require("./routes/rules"));
 app.use("/events", require("./routes/events"));
 app.use("/ai", require("./routes/ai"));
+app.use("/channels", require("./routes/channels"));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => {
