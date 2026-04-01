@@ -1,0 +1,421 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.phone { width: 340px; height: 680px; background: var(--color-background-primary); border-radius: 36px; border: 0.5px solid var(--color-border-secondary); overflow: hidden; display: flex; flex-direction: column; position: relative; }
+.status-bar { background: #1a3a2a; height: 28px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; flex-shrink: 0; }
+.status-bar span { color: #fff; font-size: 11px; font-weight: 500; }
+.screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+.screen.active { display: flex; }
+.top-bar { background: #1a3a2a; padding: 10px 16px 12px; flex-shrink: 0; }
+.top-bar h2 { color: #fff; font-size: 15px; font-weight: 500; }
+.top-bar p { color: rgba(255,255,255,0.65); font-size: 11px; margin-top: 2px; }
+.scroll-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 10px; background: var(--color-background-tertiary); }
+.scroll-area::-webkit-scrollbar { width: 0; }
+.card { background: var(--color-background-primary); border-radius: 12px; border: 0.5px solid var(--color-border-tertiary); padding: 12px 14px; }
+.card-title { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+.card-sub { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+.badge { display: inline-block; font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+.badge-green { background: #d4f0e2; color: #0f6e56; }
+.badge-amber { background: #faeeda; color: #854f0b; }
+.badge-red { background: #fcebeb; color: #a32d2d; }
+.badge-blue { background: #e6f1fb; color: #185fa5; }
+.bottom-nav { background: var(--color-background-primary); border-top: 0.5px solid var(--color-border-tertiary); display: flex; flex-shrink: 0; }
+.nav-btn { flex: 1; padding: 8px 4px 6px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; background: transparent; }
+.nav-btn svg { width: 20px; height: 20px; }
+.nav-btn span { font-size: 9px; color: var(--color-text-secondary); }
+.nav-btn.active span { color: #1a3a2a; font-weight: 500; }
+.nav-btn.active svg path, .nav-btn.active svg rect, .nav-btn.active svg circle { fill: #1a3a2a; }
+.fab { position: absolute; bottom: 68px; right: 14px; width: 44px; height: 44px; background: #1a3a2a; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; border: none; }
+.fab svg { width: 20px; height: 20px; }
+.section-label { font-size: 11px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.stat-card { background: var(--color-background-secondary); border-radius: 10px; padding: 10px 12px; }
+.stat-val { font-size: 20px; font-weight: 500; color: var(--color-text-primary); }
+.stat-lbl { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.ai-bubble { background: #eaf3de; border-radius: 12px 12px 12px 2px; padding: 10px 12px; }
+.ai-bubble p { font-size: 12px; color: #3b6d11; line-height: 1.5; }
+.user-bubble { background: #1a3a2a; border-radius: 12px 12px 2px 12px; padding: 10px 12px; align-self: flex-end; }
+.user-bubble p { font-size: 12px; color: #fff; }
+.chat-area { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; background: var(--color-background-tertiary); }
+.chat-area::-webkit-scrollbar { width: 0; }
+.chat-input-row { padding: 8px 12px; background: var(--color-background-primary); border-top: 0.5px solid var(--color-border-tertiary); display: flex; gap: 8px; align-items: center; }
+.chat-input { flex: 1; border: 0.5px solid var(--color-border-secondary); border-radius: 20px; padding: 7px 12px; font-size: 12px; background: var(--color-background-secondary); color: var(--color-text-primary); outline: none; }
+.send-btn { width: 30px; height: 30px; background: #1a3a2a; border-radius: 50%; border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.fund-bar { background: var(--color-background-secondary); border-radius: 8px; height: 8px; overflow: hidden; margin-top: 6px; }
+.fund-fill { background: #1d9e75; height: 100%; border-radius: 8px; }
+.screen-nav { display: flex; align-items: center; gap: 8px; padding: 10px 16px; background: var(--color-background-primary); border-bottom: 0.5px solid var(--color-border-tertiary); flex-shrink: 0; }
+.screen-nav h3 { font-size: 14px; font-weight: 500; }
+.back-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 50%; border: none; background: var(--color-background-secondary); }
+.file-tabs { display: flex; gap: 0; border-bottom: 0.5px solid var(--color-border-tertiary); background: var(--color-background-primary); flex-shrink: 0; }
+.file-tab { flex: 1; padding: 9px 4px; font-size: 11px; text-align: center; cursor: pointer; color: var(--color-text-secondary); border: none; background: transparent; border-bottom: 2px solid transparent; }
+.file-tab.active { color: #1a3a2a; font-weight: 500; border-bottom: 2px solid #1a3a2a; }
+.nav-icons path, .nav-icons rect, .nav-icons circle, .nav-icons polygon { fill: var(--color-text-secondary); }
+
+.outer { display: flex; gap: 20px; align-items: flex-start; padding: 16px 0; flex-wrap: wrap; justify-content: center; }
+.phone-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.screen-label { font-size: 12px; color: var(--color-text-secondary); font-weight: 500; }
+.screen-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.tab-pill { padding: 5px 12px; border-radius: 20px; font-size: 12px; cursor: pointer; border: 0.5px solid var(--color-border-secondary); background: var(--color-background-secondary); color: var(--color-text-secondary); transition: all 0.15s; }
+.tab-pill.active { background: #1a3a2a; color: #fff; border-color: #1a3a2a; }
+</style>
+
+<div class="outer">
+  <div style="display:flex; flex-direction:column; align-items:center; gap:12px; width:100%;">
+    <div class="screen-tabs" id="screenTabs">
+      <div class="tab-pill active" onclick="showScreen('home')">Home</div>
+      <div class="tab-pill" onclick="showScreen('issues')">Issues</div>
+      <div class="tab-pill" onclick="showScreen('rules')">Rules</div>
+      <div class="tab-pill" onclick="showScreen('funds')">Funds</div>
+      <div class="tab-pill" onclick="showScreen('ai')">AI Chat</div>
+      <div class="tab-pill" onclick="showScreen('admin')">Admin</div>
+    </div>
+
+    <div class="phone-wrap">
+      <div class="phone">
+        <div class="status-bar">
+          <span>9:41</span>
+          <span>SocietyApp</span>
+          <span>●●●</span>
+        </div>
+
+        <!-- HOME SCREEN -->
+        <div class="screen active" id="screen-home">
+          <div class="top-bar">
+            <h2>Good morning, Rahul</h2>
+            <p>Sunset Valley Society · Flat 4B</p>
+          </div>
+          <div class="scroll-area">
+            <div class="section-label">Overview</div>
+            <div class="stat-row">
+              <div class="stat-card"><div class="stat-val">3</div><div class="stat-lbl">Open issues</div></div>
+              <div class="stat-card"><div class="stat-val">2</div><div class="stat-lbl">New notices</div></div>
+            </div>
+            <div class="section-label" style="margin-top:4px;">Latest notices</div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Diwali Celebration 🎇</div>
+                <span class="badge badge-green">New</span>
+              </div>
+              <div class="card-sub">Oct 31 · Garden area · 7 PM onwards. All residents invited. Snacks will be provided.</div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Water supply off — 10 AM to 1 PM</div>
+                <span class="badge badge-amber">Today</span>
+              </div>
+              <div class="card-sub">Maintenance work on the main overhead tank. Please store water in advance.</div>
+            </div>
+            <div class="section-label" style="margin-top:4px;">My recent issues</div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Lift not working — Block B</div>
+                <span class="badge badge-amber">In progress</span>
+              </div>
+              <div class="card-sub">Reported 2 days ago · Engineer visit scheduled tomorrow</div>
+            </div>
+          </div>
+          <div class="bottom-nav nav-icons" id="nav-home">
+            <button class="nav-btn active" onclick="showScreen('home')">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="currentColor"/></svg>
+              <span>Home</span>
+            </button>
+            <button class="nav-btn" onclick="showScreen('issues')">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" opacity="0.2"/><path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <span>Issues</span>
+            </button>
+            <button class="nav-btn" onclick="showScreen('rules')">
+              <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" opacity="0.2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <span>Rules</span>
+            </button>
+            <button class="nav-btn" onclick="showScreen('funds')">
+              <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2"/><path d="M12 7v1m0 8v1m-3-5h4.5a1.5 1.5 0 000-3H11a1.5 1.5 0 000 3H12.5a1.5 1.5 0 010 3H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              <span>Funds</span>
+            </button>
+            <button class="nav-btn" onclick="showScreen('ai')">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.97-4.03 9-9 9a8.96 8.96 0 01-4.5-1.2L3 21l1.2-4.5A8.96 8.96 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" fill="currentColor" opacity="0.2"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>AI Help</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ISSUES SCREEN -->
+        <div class="screen" id="screen-issues">
+          <div class="top-bar">
+            <h2>Issues</h2>
+            <p>Report & track society problems</p>
+          </div>
+          <div class="file-tabs">
+            <button class="file-tab active">All (5)</button>
+            <button class="file-tab">Open (3)</button>
+            <button class="file-tab">Resolved (2)</button>
+          </div>
+          <div class="scroll-area">
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Lift not working — Block B</div>
+                <span class="badge badge-amber">In progress</span>
+              </div>
+              <div class="card-sub">Posted by Rahul · 2 days ago</div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Stray dogs near parking</div>
+                <span class="badge badge-red">Open</span>
+              </div>
+              <div class="card-sub">Posted by Priya · 1 day ago</div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Street light not working near gate 2</div>
+                <span class="badge badge-red">Open</span>
+              </div>
+              <div class="card-sub">Posted by Amit · 3 days ago</div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Gym equipment repair</div>
+                <span class="badge badge-green">Resolved</span>
+              </div>
+              <div class="card-sub">Posted by Sneha · 5 days ago · Resolved in 2 days</div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+                <div class="card-title">Broken gate latch — East entrance</div>
+                <span class="badge badge-green">Resolved</span>
+              </div>
+              <div class="card-sub">Posted by Karan · 1 week ago</div>
+            </div>
+          </div>
+          <button class="fab" onclick="">
+            <svg viewBox="0 0 24 24" fill="none" width="20" height="20"><path d="M12 5v14M5 12h14" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+          <div class="bottom-nav nav-icons">
+            <button class="nav-btn" onclick="showScreen('home')"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="currentColor"/></svg><span>Home</span></button>
+            <button class="nav-btn active" onclick="showScreen('issues')"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" opacity="0.2"/><path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Issues</span></button>
+            <button class="nav-btn" onclick="showScreen('rules')"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" opacity="0.2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rules</span></button>
+            <button class="nav-btn" onclick="showScreen('funds')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2"/><path d="M12 7v1m0 8v1m-3-5h4.5a1.5 1.5 0 000-3H11a1.5 1.5 0 000 3H12.5a1.5 1.5 0 010 3H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Funds</span></button>
+            <button class="nav-btn" onclick="showScreen('ai')"><svg viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.97-4.03 9-9 9a8.96 8.96 0 01-4.5-1.2L3 21l1.2-4.5A8.96 8.96 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" fill="currentColor" opacity="0.2"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>AI Help</span></button>
+          </div>
+        </div>
+
+        <!-- RULES SCREEN -->
+        <div class="screen" id="screen-rules">
+          <div class="top-bar">
+            <h2>Rules & Documents</h2>
+            <p>Society guidelines</p>
+          </div>
+          <div class="file-tabs">
+            <button class="file-tab active">Rules</button>
+            <button class="file-tab">Documents</button>
+            <button class="file-tab">Timings</button>
+          </div>
+          <div class="scroll-area">
+            <div class="card">
+              <div class="card-title">Gym timings</div>
+              <div class="card-sub" style="margin-top:4px;">Mon–Sat: 6:00 AM – 10:00 AM &amp; 5:00 PM – 9:00 PM<br>Sunday: Closed</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Swimming pool</div>
+              <div class="card-sub" style="margin-top:4px;">Daily: 7:00 AM – 8:00 PM<br>Maintenance: Every Tuesday 10 AM – 12 PM</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Parking rules</div>
+              <div class="card-sub" style="margin-top:4px;">Each flat gets 1 reserved spot. Visitors must use visitor parking near gate 2. No double parking.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Noise policy</div>
+              <div class="card-sub" style="margin-top:4px;">No loud music after 10 PM or before 7 AM. Events require written approval from admin 3 days in advance.</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Pet policy</div>
+              <div class="card-sub" style="margin-top:4px;">Pets allowed. Must be on leash in common areas. Register your pet with the admin office.</div>
+            </div>
+          </div>
+          <div class="bottom-nav nav-icons">
+            <button class="nav-btn" onclick="showScreen('home')"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="currentColor"/></svg><span>Home</span></button>
+            <button class="nav-btn" onclick="showScreen('issues')"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" opacity="0.2"/><path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Issues</span></button>
+            <button class="nav-btn active" onclick="showScreen('rules')"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" opacity="0.2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rules</span></button>
+            <button class="nav-btn" onclick="showScreen('funds')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2"/><path d="M12 7v1m0 8v1m-3-5h4.5a1.5 1.5 0 000-3H11a1.5 1.5 0 000 3H12.5a1.5 1.5 0 010 3H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Funds</span></button>
+            <button class="nav-btn" onclick="showScreen('ai')"><svg viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.97-4.03 9-9 9a8.96 8.96 0 01-4.5-1.2L3 21l1.2-4.5A8.96 8.96 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" fill="currentColor" opacity="0.2"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>AI Help</span></button>
+          </div>
+        </div>
+
+        <!-- FUNDS SCREEN -->
+        <div class="screen" id="screen-funds">
+          <div class="top-bar">
+            <h2>Society Funds</h2>
+            <p>October 2025 · Transparent ledger</p>
+          </div>
+          <div class="scroll-area">
+            <div class="stat-row">
+              <div class="stat-card"><div class="stat-val" style="color:#0f6e56;">₹2.4L</div><div class="stat-lbl">Total collected</div></div>
+              <div class="stat-card"><div class="stat-val" style="color:#854f0b;">₹1.1L</div><div class="stat-lbl">Total spent</div></div>
+            </div>
+            <div class="card">
+              <div class="card-title" style="margin-bottom:6px;">Monthly balance</div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:12px;color:var(--color-text-secondary);">₹1.3L remaining</span>
+                <span style="font-size:12px;font-weight:500;color:#0f6e56;">54%</span>
+              </div>
+              <div class="fund-bar"><div class="fund-fill" style="width:54%;"></div></div>
+            </div>
+            <div class="section-label" style="margin-top:4px;">Recent transactions</div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;">
+                <div><div class="card-title">Lift maintenance</div><div class="card-sub">Oct 18</div></div>
+                <div style="font-size:13px;font-weight:500;color:#a32d2d;">-₹18,000</div>
+              </div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;">
+                <div><div class="card-title">Maintenance collected</div><div class="card-sub">Oct 1 · 80 flats</div></div>
+                <div style="font-size:13px;font-weight:500;color:#0f6e56;">+₹80,000</div>
+              </div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;">
+                <div><div class="card-title">Gardening & cleaning</div><div class="card-sub">Oct 10</div></div>
+                <div style="font-size:13px;font-weight:500;color:#a32d2d;">-₹12,000</div>
+              </div>
+            </div>
+          </div>
+          <div class="bottom-nav nav-icons">
+            <button class="nav-btn" onclick="showScreen('home')"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="currentColor"/></svg><span>Home</span></button>
+            <button class="nav-btn" onclick="showScreen('issues')"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" opacity="0.2"/><path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Issues</span></button>
+            <button class="nav-btn" onclick="showScreen('rules')"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" opacity="0.2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rules</span></button>
+            <button class="nav-btn active" onclick="showScreen('funds')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2"/><path d="M12 7v1m0 8v1m-3-5h4.5a1.5 1.5 0 000-3H11a1.5 1.5 0 000 3H12.5a1.5 1.5 0 010 3H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Funds</span></button>
+            <button class="nav-btn" onclick="showScreen('ai')"><svg viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.97-4.03 9-9 9a8.96 8.96 0 01-4.5-1.2L3 21l1.2-4.5A8.96 8.96 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" fill="currentColor" opacity="0.2"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>AI Help</span></button>
+          </div>
+        </div>
+
+        <!-- AI CHAT SCREEN -->
+        <div class="screen" id="screen-ai">
+          <div class="top-bar">
+            <h2>Society AI Assistant</h2>
+            <p>Ask anything about your society</p>
+          </div>
+          <div class="chat-area" id="chatArea">
+            <div class="ai-bubble">
+              <p>Namaste! I'm your society assistant. Ask me about gym timings, parking, upcoming events, rules, or anything else about Sunset Valley Society.</p>
+            </div>
+            <div class="user-bubble"><p>Aaj gym kab tak khula hai?</p></div>
+            <div class="ai-bubble"><p>Aaj (Mon–Sat) gym ka timing hai:<br><strong>Subah:</strong> 6:00 AM – 10:00 AM<br><strong>Shaam:</strong> 5:00 PM – 9:00 PM<br><br>Sunday ko gym band rehta hai.</p></div>
+            <div class="user-bubble"><p>Pool maintenance kab hai?</p></div>
+            <div class="ai-bubble"><p>Swimming pool ka maintenance har <strong>Tuesday</strong> ko 10 AM se 12 PM ke beech hota hai. Baki din pool 7 AM se 8 PM tak khula rehta hai.</p></div>
+          </div>
+          <div class="chat-input-row">
+            <input class="chat-input" id="chatInput" placeholder="Ask about society..." />
+            <button class="send-btn" onclick="sendMsg()">
+              <svg viewBox="0 0 24 24" fill="none" width="14" height="14"><path d="M5 12h14M13 6l6 6-6 6" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
+          <div class="bottom-nav nav-icons">
+            <button class="nav-btn" onclick="showScreen('home')"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="currentColor"/></svg><span>Home</span></button>
+            <button class="nav-btn" onclick="showScreen('issues')"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" opacity="0.2"/><path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Issues</span></button>
+            <button class="nav-btn" onclick="showScreen('rules')"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" opacity="0.2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rules</span></button>
+            <button class="nav-btn" onclick="showScreen('funds')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2"/><path d="M12 7v1m0 8v1m-3-5h4.5a1.5 1.5 0 000-3H11a1.5 1.5 0 000 3H12.5a1.5 1.5 0 010 3H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Funds</span></button>
+            <button class="nav-btn active" onclick="showScreen('ai')"><svg viewBox="0 0 24 24" fill="none"><path d="M21 12c0 4.97-4.03 9-9 9a8.96 8.96 0 01-4.5-1.2L3 21l1.2-4.5A8.96 8.96 0 013 12c0-4.97 4.03-9 9-9s9 4.03 9 9z" fill="currentColor" opacity="0.2"/><path d="M8 12h.01M12 12h.01M16 12h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span>AI Help</span></button>
+          </div>
+        </div>
+
+        <!-- ADMIN SCREEN -->
+        <div class="screen" id="screen-admin">
+          <div class="top-bar">
+            <h2>Admin Panel</h2>
+            <p>Sunset Valley Society · Admin</p>
+          </div>
+          <div class="scroll-area">
+            <div class="section-label">Quick actions</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+              <div class="card" style="text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">📢</div>
+                <div class="card-title" style="font-size:12px;">Post notice</div>
+              </div>
+              <div class="card" style="text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">🎉</div>
+                <div class="card-title" style="font-size:12px;">Add event</div>
+              </div>
+              <div class="card" style="text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">💰</div>
+                <div class="card-title" style="font-size:12px;">Update funds</div>
+              </div>
+              <div class="card" style="text-align:center;cursor:pointer;">
+                <div style="font-size:20px;margin-bottom:4px;">👥</div>
+                <div class="card-title" style="font-size:12px;">Manage users</div>
+              </div>
+            </div>
+            <div class="section-label" style="margin-top:4px;">Pending issues</div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div class="card-title">Stray dogs near parking</div>
+                  <div class="card-sub">Priya · 1 day ago</div>
+                </div>
+                <button style="font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid #1a3a2a;color:#1a3a2a;background:transparent;cursor:pointer;">Resolve</button>
+              </div>
+            </div>
+            <div class="card">
+              <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                  <div class="card-title">Street light — Gate 2</div>
+                  <div class="card-sub">Amit · 3 days ago</div>
+                </div>
+                <button style="font-size:11px;padding:4px 10px;border-radius:20px;border:0.5px solid #1a3a2a;color:#1a3a2a;background:transparent;cursor:pointer;">Resolve</button>
+              </div>
+            </div>
+            <div class="section-label" style="margin-top:4px;">Society stats</div>
+            <div class="stat-row">
+              <div class="stat-card"><div class="stat-val">142</div><div class="stat-lbl">Registered users</div></div>
+              <div class="stat-card"><div class="stat-val">94%</div><div class="stat-lbl">Dues collected</div></div>
+            </div>
+          </div>
+          <div class="bottom-nav nav-icons">
+            <button class="nav-btn" onclick="showScreen('home')"><svg viewBox="0 0 24 24" fill="none"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z" fill="currentColor"/></svg><span>Home</span></button>
+            <button class="nav-btn" onclick="showScreen('issues')"><svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="16" height="16" rx="3" fill="currentColor" opacity="0.2"/><path d="M8 10h8M8 14h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Issues</span></button>
+            <button class="nav-btn" onclick="showScreen('rules')"><svg viewBox="0 0 24 24" fill="none"><rect x="5" y="3" width="14" height="18" rx="2" fill="currentColor" opacity="0.2"/><path d="M8 8h8M8 12h8M8 16h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Rules</span></button>
+            <button class="nav-btn" onclick="showScreen('funds')"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="currentColor" opacity="0.2"/><path d="M12 7v1m0 8v1m-3-5h4.5a1.5 1.5 0 000-3H11a1.5 1.5 0 000 3H12.5a1.5 1.5 0 010 3H9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg><span>Funds</span></button>
+            <button class="nav-btn active" onclick="showScreen('admin')"><svg viewBox="0 0 24 24" fill="none"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" fill="currentColor" opacity="0.8"/></svg><span>Admin</span></button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.tab-pill').forEach(p => p.classList.remove('active'));
+  const pills = document.querySelectorAll('.tab-pill');
+  const map = ['home','issues','rules','funds','ai','admin'];
+  const idx = map.indexOf(name);
+  if (idx >= 0) pills[idx].classList.add('active');
+}
+
+function sendMsg() {
+  const input = document.getElementById('chatInput');
+  const val = input.value.trim();
+  if (!val) return;
+  const area = document.getElementById('chatArea');
+  const ub = document.createElement('div');
+  ub.className = 'user-bubble';
+  ub.innerHTML = '<p>' + val + '</p>';
+  area.appendChild(ub);
+  input.value = '';
+  setTimeout(() => {
+    const ab = document.createElement('div');
+    ab.className = 'ai-bubble';
+    ab.innerHTML = '<p>Is baare mein aur jaankari ke liye admin se contact karein ya Rules section check karein. Koi aur sawaal ho toh poochein!</p>';
+    area.appendChild(ab);
+    area.scrollTop = area.scrollHeight;
+  }, 600);
+  area.scrollTop = area.scrollHeight;
+}
+
+document.getElementById('chatInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') sendMsg();
+});
+</script>
