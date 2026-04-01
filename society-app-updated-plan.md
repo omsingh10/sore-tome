@@ -430,7 +430,7 @@ These changes complete the user profile view and logout flow, finalizing the adm
 ---
 
 ## Post-Completion Fixes 
-- **Sign Out Routing:** When pressing the logout button, the Flutter Navigator was retaining the primary tab screens within its stack. Upgraded the back button mechanism to execute `popUntil((route) => route.isFirst)` purging the entire stack to force the framework to organically re-evaluating the Root login paths seamlessly!
+- **Sign Out Routing:** When pressing the logout button, the Flutter Navigator was retaining the primary tab screens within its stack. Traced the `_SplashRoute` map and discovered that `/home` evaluates as the true routing root rather than the Splash. Upgraded the logout back button mechanism to explicitly run `Navigator.pushNamedAndRemoveUntil('/login', ...)` entirely erasing the stack and forcing the framework into the `LoginScreen` directly without relying on organic StateNotifier rebuilding.
 - **Database Backed Admins:** Shifted away from hardcoded auth bypasses directly into Firebase natively! Wrote a `seed_admins.js` executor injecting the 3 admin accounts directly into your Firestore `users` schema with fully configured credentials and hashed `bcryptjs` passwords. The backend router was subsequently stripped of all custom admin intercepts allowing all users (admins and residents alike) to flow cleanly through exactly the same Firebase validation pipelines using:
     - `username/phone: admin` / **password: 123123,33** (main admin)
     - `username/phone: treasurer` / password: 123,23

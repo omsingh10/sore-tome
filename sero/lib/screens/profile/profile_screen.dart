@@ -74,8 +74,8 @@ class ProfileScreen extends ConsumerWidget {
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             onPressed: () {
-              Navigator.of(context).popUntil((route) => route.isFirst); // Pop entirely to root
               ref.read(authProvider.notifier).logout(); // Logout globally
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false); // Erase stack and push login
             },
             icon: const Icon(Icons.logout),
             label: const Text('SIGN OUT', style: TextStyle(fontWeight: FontWeight.bold)),
