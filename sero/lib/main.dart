@@ -5,10 +5,17 @@ import 'firebase_options.dart';
 import 'app/app.dart';
 
 Future<void> main() async {
+  print("🚀 [DEBUG] APP BOOTING...");
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    print("🚀 [DEBUG] STARTING FIREBASE...");
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    print("🚀 [DEBUG] FIREBASE INITIALIZED!");
+  } catch (e) {
+    debugPrint("Firebase Init Error: $e");
+  }
   runApp(
     const ProviderScope(
       child: SocietyApp(),

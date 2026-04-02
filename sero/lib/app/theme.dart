@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 const kPrimaryGreen = Color(0xFF1A3A2A);
 const kAccentGreen = Color(0xFF1D9E75);
 const kLightGreen = Color(0xFFEAF3DE);
 const kTextGreen = Color(0xFF3B6D11);
 const kDarkGreen = Color(0xFF0F6E56);
+const kDeepNavy = Color(0xFF0F172A); // Modern slate/navy for gradients
 
 const kBadgeGreenBg = Color(0xFFD4F0E2);
 const kBadgeGreenText = Color(0xFF0F6E56);
@@ -16,6 +18,7 @@ const kBadgeBlueBg = Color(0xFFE6F1FB);
 const kBadgeBlueText = Color(0xFF185FA5);
 
 ThemeData appTheme() {
+  final base = ThemeData.light();
   return ThemeData(
     useMaterial3: true,
     colorScheme: ColorScheme.fromSeed(
@@ -23,13 +26,13 @@ ThemeData appTheme() {
       primary: kPrimaryGreen,
       secondary: kAccentGreen,
     ),
-    scaffoldBackgroundColor: const Color(0xFFF5F5F5),
-    appBarTheme: const AppBarTheme(
+    scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+    appBarTheme: AppBarTheme(
       backgroundColor: kPrimaryGreen,
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
-      titleTextStyle: TextStyle(
+      titleTextStyle: GoogleFonts.outfit(
         color: Colors.white,
         fontSize: 16,
         fontWeight: FontWeight.w500,
@@ -39,46 +42,47 @@ ThemeData appTheme() {
       color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFFE5E5E5), width: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFF1F5F9), width: 1),
       ),
       margin: EdgeInsets.zero,
     ),
-    bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+    bottomNavigationBarTheme: BottomNavigationBarThemeData(
       backgroundColor: Colors.white,
       selectedItemColor: kPrimaryGreen,
-      unselectedItemColor: Color(0xFF8A8A8A),
-      selectedLabelStyle: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-      unselectedLabelStyle: TextStyle(fontSize: 10),
+      unselectedItemColor: const Color(0xFF94A3B8),
+      selectedLabelStyle: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600),
+      unselectedLabelStyle: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500),
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: kPrimaryGreen,
+      backgroundColor: kAccentGreen,
       foregroundColor: Colors.white,
       shape: CircleBorder(),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFFF5F5F5),
+      fillColor: const Color(0xFFF8FAFC),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(20),
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD), width: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(20),
-        borderSide: const BorderSide(color: Color(0xFFDDDDDD), width: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(20),
-        borderSide: const BorderSide(color: kPrimaryGreen, width: 1),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: kAccentGreen, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      hintStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 14),
     ),
-    textTheme: const TextTheme(
-      bodyMedium: TextStyle(fontSize: 13, color: Color(0xFF1A1A1A)),
-      bodySmall: TextStyle(fontSize: 12, color: Color(0xFF6B6B6B)),
-      labelSmall: TextStyle(fontSize: 11, color: Color(0xFF8A8A8A)),
+    textTheme: GoogleFonts.outfitTextTheme(base.textTheme).copyWith(
+      bodyMedium: GoogleFonts.outfit(fontSize: 14, color: const Color(0xFF1E293B)),
+      bodySmall: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+      labelSmall: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8)),
     ),
   );
 }

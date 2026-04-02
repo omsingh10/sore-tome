@@ -18,14 +18,14 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
       child: Scaffold(
         appBar: AppBar(
           title: const Text('User Management'),
-          bottom: const TabBar(tabs: [Tab(text: 'Pending'), Tab(text: 'All Residents')]),
+          bottom: const TabBar(
+            tabs: [
+              Tab(text: 'Pending'),
+              Tab(text: 'All Residents'),
+            ],
+          ),
         ),
-        body: TabBarView(
-          children: [
-            _PendingTab(),
-            _AllUsersTab(),
-          ],
-        ),
+        body: TabBarView(children: [_PendingTab(), _AllUsersTab()]),
       ),
     );
   }
@@ -38,7 +38,8 @@ class _PendingTab extends ConsumerWidget {
 
     return pendingAsync.when(
       data: (users) {
-        if (users.isEmpty) return const Center(child: Text('No pending approvals'));
+        if (users.isEmpty)
+          return const Center(child: Text('No pending approvals'));
         return ListView.builder(
           itemCount: users.length,
           itemBuilder: (context, index) {
@@ -51,11 +52,14 @@ class _PendingTab extends ConsumerWidget {
                 children: [
                   IconButton(
                     icon: const Icon(Icons.check, color: Colors.green),
-                    onPressed: () => ref.read(userOperationsProvider).approveUser(u.id),
+                    onPressed: () =>
+                        ref.read(userOperationsProvider).approveUser(u.id),
                   ),
                   IconButton(
                     icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () => ref.read(userOperationsProvider).rejectUser(u.id, "Rejected by admin"),
+                    onPressed: () => ref
+                        .read(userOperationsProvider)
+                        .rejectUser(u.id, "Rejected by admin"),
                   ),
                 ],
               ),
@@ -84,7 +88,10 @@ class _AllUsersTab extends ConsumerWidget {
             return ListTile(
               title: Text('${u.name} (${u.role})'),
               subtitle: Text('Flat: ${u.flatNumber} | Type: ${u.residentType}'),
-              trailing: Icon(u.maintenanceExempt ? Icons.money_off : Icons.attach_money, color: u.maintenanceExempt ? Colors.grey : Colors.green),
+              trailing: Icon(
+                u.maintenanceExempt ? Icons.money_off : Icons.attach_money,
+                color: u.maintenanceExempt ? Colors.grey : Colors.green,
+              ),
               onTap: () => _showEditDialog(context, ref, u),
             );
           },
@@ -109,8 +116,15 @@ class _AllUsersTab extends ConsumerWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: selectedType,
-                  items: ['owner', 'tenant', 'guest'].map((x) => DropdownMenuItem(value: x, child: Text(x.toUpperCase()))).toList(),
+                  initialValue: selectedType,
+                  items: ['owner', 'tenant', 'guest']
+                      .map(
+                        (x) => DropdownMenuItem(
+                          value: x,
+                          child: Text(x.toUpperCase()),
+                        ),
+                      )
+                      .toList(),
                   onChanged: (v) => setState(() => selectedType = v!),
                   decoration: const InputDecoration(labelText: 'Resident Type'),
                 ),
@@ -118,11 +132,14 @@ class _AllUsersTab extends ConsumerWidget {
                   title: const Text('Maintenance Exempt (Flat is out)'),
                   value: exempt,
                   onChanged: (v) => setState(() => exempt = v),
-                )
+                ),
               ],
             ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
               ElevatedButton(
                 onPressed: () {
                   ref.read(userOperationsProvider).updateUser(u.id, {
@@ -135,7 +152,7 @@ class _AllUsersTab extends ConsumerWidget {
               ),
             ],
           );
-        }
+        },
       ),
     );
   }

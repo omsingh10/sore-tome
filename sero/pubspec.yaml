@@ -46,6 +46,8 @@ dependencies:
   # ── State Management ─────────────────────────────────
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
+  google_fonts: 
+  flutter_animate: 
 
 dev_dependencies:
   flutter_test:
