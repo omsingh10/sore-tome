@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -47,64 +48,129 @@ class _MainShellState extends ConsumerState<MainShell> {
       if (role != 'treasurer') const AiChatScreen(),
     ];
 
-    final items = [
-      const BottomNavigationBarItem(icon: Icon(Icons.home_outlined), activeIcon: Icon(Icons.home), label: 'Home'),
-      if (role != 'treasurer') const BottomNavigationBarItem(icon: Icon(Icons.chat_outlined), activeIcon: Icon(Icons.chat), label: 'Channels'),
-      if (role != 'treasurer') const BottomNavigationBarItem(icon: Icon(Icons.list_alt_outlined), activeIcon: Icon(Icons.list_alt), label: 'Issues'),
-      if (role != 'treasurer') const BottomNavigationBarItem(icon: Icon(Icons.description_outlined), activeIcon: Icon(Icons.description), label: 'Rules'),
-      if (role == 'resident' || role == 'main_admin' || role == 'treasurer') const BottomNavigationBarItem(icon: Icon(Icons.account_balance_wallet_outlined), activeIcon: Icon(Icons.account_balance_wallet), label: 'Funds'),
-      if (role != 'treasurer') const BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), activeIcon: Icon(Icons.chat_bubble), label: 'AI Help'),
+    final navItems = [
+      _NavItemData(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
+      if (role != 'treasurer')
+        _NavItemData(icon: Icons.chat_outlined, activeIcon: Icons.chat_rounded, label: 'Channels'),
+      if (role != 'treasurer')
+        _NavItemData(icon: Icons.list_alt_outlined, activeIcon: Icons.list_alt_rounded, label: 'Issues'),
+      if (role != 'treasurer')
+        _NavItemData(icon: Icons.description_outlined, activeIcon: Icons.description_rounded, label: 'Rules'),
+      if (role == 'resident' || role == 'main_admin' || role == 'treasurer')
+        _NavItemData(icon: Icons.account_balance_wallet_outlined, activeIcon: Icons.account_balance_wallet_rounded, label: 'Funds'),
+      if (role != 'treasurer')
+        _NavItemData(icon: Icons.smart_toy_outlined, activeIcon: Icons.smart_toy_rounded, label: 'AI Help'),
     ];
 
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: _index >= pages.length ? 0 : _index, children: pages),
-      bottomNavigationBar: Container(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.8),
-            borderRadius: BorderRadius.circular(28),
-            border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: kPrimaryGreen.withOpacity(0.12),
-                blurRadius: 24,
-                offset: const Offset(0, 8),
-              ),
-            ],
+      backgroundColor: Colors.white,
+      body: IndexedStack(
+        index: _index >= pages.length ? 0 : _index,
+        children: pages,
+      ),
+      bottomNavigationBar: _FloatingPillNavbar(
+        currentIndex: _index,
+        items: navItems,
+        onTap: (i) => setState(() => _index = i),
+      ),
+    );
+  }
+}
+
+class _NavItemData {
+  final IconData icon;
+  final IconData activeIcon;
+  final String label;
+
+  _NavItemData({
+    required this.icon,
+    required this.activeIcon,
+    required this.label,
+  });
+}
+
+class _FloatingPillNavbar extends StatelessWidget {
+  final int currentIndex;
+  final List<_NavItemData> items;
+  final ValueChanged<int> onTap;
+
+  const _FloatingPillNavbar({
+    required this.currentIndex,
+    required this.items,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 0, 24, 28),
+      alignment: Alignment.bottomCenter,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(40),
+          border: Border.all(
+            color: const Color(0xFFE2E8F0),
+            width: 1,
           ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
-            child: BackdropFilter(
-              filter: ColorFilter.mode(
-                Colors.white.withOpacity(0.05),
-                BlendMode.srcOver,
-              ),
-              child: BottomNavigationBar(
-                elevation: 0,
-                backgroundColor: Colors.transparent,
-                type: BottomNavigationBarType.fixed,
-                currentIndex: _index >= items.length ? 0 : _index,
-                selectedItemColor: kPrimaryGreen,
-                unselectedItemColor: const Color(0xFF94A3B8),
-                selectedLabelStyle: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                  letterSpacing: -0.2,
-                ),
-                unselectedLabelStyle: GoogleFonts.outfit(
-                  fontWeight: FontWeight.w500,
-                  fontSize: 11,
-                  letterSpacing: -0.2,
-                ),
-                onTap: (i) => setState(() => _index = i),
-                items: items,
-              ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 8),
             ),
-          ),
+          ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: List.generate(items.length, (index) {
+            final isSelected = currentIndex == index;
+            final item = items[index];
+
+            return GestureDetector(
+              onTap: () => onTap(index),
+              behavior: HitTestBehavior.opaque,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutQuart,
+                padding: EdgeInsets.symmetric(
+                  horizontal: isSelected ? 16 : 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: isSelected ? kPrimaryGreen : Colors.transparent,
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isSelected ? item.activeIcon : item.icon,
+                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                      size: 20,
+                    ),
+                    if (isSelected) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        item.label,
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: -0.2,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            );
+          }),
         ),
       ),
     );
   }
 }
+

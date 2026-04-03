@@ -14,6 +14,7 @@ class ChannelsListScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Channels')),
       body: channelsAsync.when(
         data: (channels) => ListView.builder(
+          padding: const EdgeInsets.only(bottom: 120),
           itemCount: channels.length,
           itemBuilder: (context, index) {
             final ch = channels[index];

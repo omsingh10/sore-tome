@@ -53,7 +53,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 : RefreshIndicator(
                     onRefresh: _load,
                     child: ListView(
-                      padding: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 120),
                       children: [
                         _sectionLabel('Overview'),
                         const SizedBox(height: 6),
