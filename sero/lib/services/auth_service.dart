@@ -4,10 +4,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:flutter/foundation.dart';
 
-// Use localhost for Web/Desktop, 10.0.2.2 for Android Emulator
+// Use localhost for Web/Desktop, local IP for physical Android/iOS device
 final String kBaseUrl = (kIsWeb || defaultTargetPlatform == TargetPlatform.windows)
     ? 'http://localhost:3000'
-    : 'http://10.0.2.2:3000';
+    : 'http://192.168.182.192:3000';
 
 class AuthService {
   // ─── Register (resident) ──────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-package com.example.sero
+package sero.com
 
 import io.flutter.embedding.android.FlutterActivity
 

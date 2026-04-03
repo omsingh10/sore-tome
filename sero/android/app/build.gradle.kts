@@ -11,7 +11,7 @@ android {
     // Must match the package_name in google-services.json
     namespace = "sero.com"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
@@ -25,8 +25,9 @@ android {
     defaultConfig {
         // Must match android_client_info.package_name in google-services.json
         applicationId = "sero.com"
-        minSdk = flutter.minSdkVersion
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
+        multiDexEnabled = true
         versionCode = flutter.versionCode
         versionName = flutter.versionName
     }
