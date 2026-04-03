@@ -319,7 +319,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           height: 52,
           child: ElevatedButton(
             onPressed: _loading ? null : _loginResident,
-            style: _btnStyle(),
             child: _loading
                 ? const SizedBox(
                     width: 24,
@@ -403,7 +402,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           height: 52,
           child: ElevatedButton(
             onPressed: _loading ? null : _loginAdmin,
-            style: _btnStyle(),
             child: _loading
                 ? const SizedBox(
                     width: 24,
@@ -438,10 +436,5 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
   }
 
-  ButtonStyle _btnStyle() => ElevatedButton.styleFrom(
-        backgroundColor: kPrimaryGreen,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      );
+  // Button style removed to use theme-defined ElevatedButtonTheme
 }

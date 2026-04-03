@@ -1,13 +1,40 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-const kPrimaryGreen = Color(0xFF1A3A2A);
-const kAccentGreen = Color(0xFF1D9E75);
+// Premium Green & Blue Palette
+const kPrimaryGreen = Color(0xFF064E3B); // Deep Emerald
+const kPrimaryBlue = Color(0xFF1E3A8A);  // Deep Navy Blue
+const kAccentGreen = Color(0xFF10B981);  // Emerald 500
+const kAccentBlue = Color(0xFF0EA5E9);   // Sky 500
+const kSlateBg = Color(0xFFF8FAFC);      // Soft Slate background
+const kSlateBorder = Color(0xFFE2E8F0);  // Slate border
+
+// Premium Gradient for AppBars and Headers
+const kPremiumGradient = LinearGradient(
+  colors: [kPrimaryGreen, Color(0xFF111827)], // Deep Emerald to near-black navy
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
+
+const kEmeraldSkyGradient = LinearGradient(
+  colors: [kPrimaryGreen, kPrimaryBlue], // Deep Emerald to Deep Navy Blue
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
+
+const kGlassGradient = LinearGradient(
+  colors: [Colors.white12, Colors.white10],
+  begin: Alignment.topLeft,
+  end: Alignment.bottomRight,
+);
+
+// Existing functional colors (kept for compatibility)
 const kLightGreen = Color(0xFFEAF3DE);
 const kTextGreen = Color(0xFF3B6D11);
 const kDarkGreen = Color(0xFF0F6E56);
-const kDeepNavy = Color(0xFF0F172A); // Modern slate/navy for gradients
+const kDeepNavy = Color(0xFF0F172A); 
 
+// Badge palette
 const kBadgeGreenBg = Color(0xFFD4F0E2);
 const kBadgeGreenText = Color(0xFF0F6E56);
 const kBadgeAmberBg = Color(0xFFFAEEDA);
@@ -24,65 +51,83 @@ ThemeData appTheme() {
     colorScheme: ColorScheme.fromSeed(
       seedColor: kPrimaryGreen,
       primary: kPrimaryGreen,
-      secondary: kAccentGreen,
+      secondary: kPrimaryBlue,
+      tertiary: kAccentGreen,
+      surface: Colors.white,
+      background: kSlateBg,
+      onPrimary: Colors.white,
     ),
-    scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+    scaffoldBackgroundColor: kSlateBg,
     appBarTheme: AppBarTheme(
-      backgroundColor: kPrimaryGreen,
+      backgroundColor: Colors.transparent, // Handled by gradient in screens
       foregroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
       titleTextStyle: GoogleFonts.outfit(
         color: Colors.white,
-        fontSize: 16,
-        fontWeight: FontWeight.w500,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+        letterSpacing: -0.5,
       ),
     ),
     cardTheme: CardThemeData(
       color: Colors.white,
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFF1F5F9), width: 1),
+        borderRadius: BorderRadius.circular(24),
+        side: BorderSide(color: kSlateBorder.withOpacity(0.4), width: 1),
       ),
       margin: EdgeInsets.zero,
     ),
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.transparent,
       selectedItemColor: kPrimaryGreen,
       unselectedItemColor: const Color(0xFF94A3B8),
-      selectedLabelStyle: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w600),
-      unselectedLabelStyle: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w500),
+      selectedLabelStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600),
+      unselectedLabelStyle: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w500),
       type: BottomNavigationBarType.fixed,
       elevation: 0,
     ),
-    floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: kAccentGreen,
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: kPrimaryGreen,
       foregroundColor: Colors.white,
-      shape: CircleBorder(),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: const Color(0xFFF8FAFC),
+      fillColor: Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: kSlateBorder, width: 1.5),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 1),
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: kSlateBorder, width: 1.5),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: const BorderSide(color: kAccentGreen, width: 2),
+        borderRadius: BorderRadius.circular(20),
+        borderSide: const BorderSide(color: kPrimaryGreen, width: 2),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-      hintStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      hintStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
     ),
     textTheme: GoogleFonts.outfitTextTheme(base.textTheme).copyWith(
-      bodyMedium: GoogleFonts.outfit(fontSize: 14, color: const Color(0xFF1E293B)),
+      bodyLarge: GoogleFonts.outfit(fontSize: 16, color: const Color(0xFF1E293B), fontWeight: FontWeight.w400),
+      bodyMedium: GoogleFonts.outfit(fontSize: 14, color: const Color(0xFF334155), height: 1.5),
       bodySmall: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
-      labelSmall: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8)),
+      titleLarge: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w700, color: kPrimaryGreen, letterSpacing: -0.8),
+      titleMedium: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w600, color: const Color(0xFF1E293B)),
+    ),
+    elevatedButtonTheme: ElevatedButtonThemeData(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: kPrimaryGreen,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        minimumSize: const Size(double.infinity, 56),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600),
+      ),
     ),
   );
 }
