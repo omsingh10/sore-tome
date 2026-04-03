@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../../app/theme.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
+import '../../widgets/brand_logo.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -10,9 +13,8 @@ class LoginScreen extends ConsumerStatefulWidget {
   ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _LoginScreenState extends ConsumerState<LoginScreen> {
+  int _selectedIndex = 0; // 0 for Resident, 1 for Admin
 
   // Resident fields
   final _phoneCtrl = TextEditingController();
@@ -27,14 +29,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _showAdminPass = false;
 
   @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
-  }
-
-  @override
   void dispose() {
-    _tabController.dispose();
     _phoneCtrl.dispose();
     _passCtrl.dispose();
     _adminUserCtrl.dispose();
@@ -42,24 +37,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     super.dispose();
   }
 
-  // ── Resident Login ────────────────────────────────────────────────────────
+  // ── Resident Login ──────────────────────────────────────────
   Future<void> _loginResident() async {
     final phone = _phoneCtrl.text.trim();
-    final pass  = _passCtrl.text.trim();
+    final pass = _passCtrl.text.trim();
     if (phone.isEmpty || pass.isEmpty) return;
 
     setState(() => _loading = true);
     try {
-      await ref.read(authProvider.notifier).login(
-        '+91$phone',
-        pass,
-      );
+      await ref.read(authProvider.notifier).login('+91$phone', pass);
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/home',
-        (_) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } catch (e) {
       if (!mounted) return;
       final msg = e is Map ? e['error'] : e.toString();
@@ -69,7 +57,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     }
   }
 
-  // ── Admin Login ───────────────────────────────────────────────────────────
+  // ── Admin Login ─────────────────────────────────────────────
   Future<void> _loginAdmin() async {
     final user = _adminUserCtrl.text.trim();
     final pass = _adminPassCtrl.text.trim();
@@ -79,11 +67,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     try {
       await ref.read(authProvider.notifier).login(user, pass);
       if (!mounted) return;
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/home',
-        (_) => false,
-      );
+      Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
     } catch (e) {
       if (!mounted) return;
       final msg = e is Map ? e['error'] : e.toString();
@@ -103,93 +87,195 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     );
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kPrimaryGreen,
-      body: SafeArea(
-        child: Column(
-          children: [
-            const Spacer(),
-            // ── Brand ──────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'SocietyApp',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: -0.5,
-                    ),
+      body: Container(
+        decoration: const BoxDecoration(
+          color: kPrimaryGreen, // Matte deep green for premium feel
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Column(
+            children: [
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SocietyLogo(size: 80)
+                          .animate()
+                          .fade(duration: 800.ms)
+                          .scale(
+                            begin: const Offset(0.9, 0.9),
+                            curve: Curves.easeOutBack,
+                          ),
+                      const SizedBox(height: 24),
+                      Text(
+                        'SERO',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.w300,
+                          letterSpacing: 10,
+                        ),
+                      )
+                          .animate()
+                          .fade(delay: 200.ms)
+                          .slideY(begin: 0.2, curve: Curves.easeOutQuint),
+                      Text(
+                        'Connects the Society',
+                        style: GoogleFonts.outfit(
+                          color: Colors.white60,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 6,
+                        ),
+                      ).animate().fade(delay: 400.ms),
+                    ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Your society, connected.',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.75),
-                      fontSize: 15,
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-            const Spacer(),
 
-            // ── White card with tabs ────────────────────────────────────────
-            Container(
-              width: double.infinity,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-              ),
-              padding: const EdgeInsets.fromLTRB(28, 24, 28, 32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Tabs
-                  Container(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF0F4F0),
-                      borderRadius: BorderRadius.circular(12),
+              // Bottom Sheet Form
+              RepaintBoundary(
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(36),
                     ),
-                    child: TabBar(
-                      controller: _tabController,
-                      indicator: BoxDecoration(
-                        color: kPrimaryGreen,
-                        borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(20),
+                        blurRadius: 30,
+                        offset: const Offset(0, -10),
                       ),
-                      labelColor: Colors.white,
-                      unselectedLabelColor: const Color(0xFF5A5A5A),
-                      labelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                      dividerColor: Colors.transparent,
-                      tabs: const [
-                        Tab(text: '🏠  Resident'),
-                        Tab(text: '🛡️  Admin'),
-                      ],
-                    ),
+                    ],
                   ),
-                  const SizedBox(height: 24),
-
-                  // Tab content
-                  SizedBox(
-                    height: 230,
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _residentForm(),
-                        _adminForm(),
-                      ],
-                    ),
+                  padding: const EdgeInsets.fromLTRB(28, 32, 28, 40),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Custom Toggle (Pill style)
+                      Container(
+                        height: 52,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFF1F5F9),
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        child: Stack(
+                          children: [
+                            AnimatedAlign(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.fastOutSlowIn,
+                              alignment: _selectedIndex == 0
+                                  ? Alignment.centerLeft
+                                  : Alignment.centerRight,
+                              child: FractionallySizedBox(
+                                widthFactor: 0.5,
+                                child: Container(
+                                  margin: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(22),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withAlpha(10),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () =>
+                                        setState(() => _selectedIndex = 0),
+                                    child: Center(
+                                      child: AnimatedDefaultTextStyle(
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
+                                        style: GoogleFonts.outfit(
+                                          color: _selectedIndex == 0
+                                              ? kDeepNavy
+                                              : const Color(0xFF64748B),
+                                          fontWeight: _selectedIndex == 0
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                          fontSize: 15,
+                                        ),
+                                        child: const Text('Resident'),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTap: () =>
+                                        setState(() => _selectedIndex = 1),
+                                    child: Center(
+                                      child: AnimatedDefaultTextStyle(
+                                        duration: const Duration(
+                                          milliseconds: 200,
+                                        ),
+                                        style: GoogleFonts.outfit(
+                                          color: _selectedIndex == 1
+                                              ? kDeepNavy
+                                              : const Color(0xFF64748B),
+                                          fontWeight: _selectedIndex == 1
+                                              ? FontWeight.w600
+                                              : FontWeight.w500,
+                                          fontSize: 15,
+                                        ),
+                                        child: const Text('Admin'),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 28),
+  
+                      // HEAVY FIX: SizedBox with fixed height prevents "jumping"
+                      // INDEXEDSTACK prevents "lag" by keeping forms alive in background
+                      SizedBox(
+                        height: 275, // Locked height for ultimate stability
+                        child: IndexedStack(
+                          index: _selectedIndex,
+                          children: [
+                            // Resident Form
+                            AnimatedOpacity(
+                              opacity: _selectedIndex == 0 ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: _residentForm(),
+                            ),
+                            // Admin Form
+                            AnimatedOpacity(
+                              opacity: _selectedIndex == 1 ? 1.0 : 0.0,
+                              duration: const Duration(milliseconds: 200),
+                              child: _adminForm(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ],
+                ),
+              ).animate().fade(duration: 600.ms, delay: 500.ms).slideY(begin: 0.1, curve: Curves.easeOutQuint),
+            ],
+          ),
         ),
       ),
     );
@@ -205,40 +291,72 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           decoration: const InputDecoration(
             prefixText: '+91  ',
             hintText: 'Phone number',
-            prefixIcon: Icon(Icons.phone_outlined),
+            prefixIcon: Icon(Icons.phone_outlined, color: Color(0xFF94A3B8)),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         TextField(
           controller: _passCtrl,
           obscureText: !_showPass,
           decoration: InputDecoration(
             hintText: 'Password',
-            prefixIcon: const Icon(Icons.lock_outline),
+            prefixIcon: const Icon(
+              Icons.lock_outline,
+              color: Color(0xFF94A3B8),
+            ),
             suffixIcon: IconButton(
-              icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility),
+              icon: Icon(
+                _showPass ? Icons.visibility_off : Icons.visibility,
+                color: const Color(0xFF94A3B8),
+              ),
               onPressed: () => setState(() => _showPass = !_showPass),
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
+          height: 52,
           child: ElevatedButton(
             onPressed: _loading ? null : _loginResident,
-            style: _btnStyle(),
             child: _loading
-                ? const SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Login'),
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    'Login',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         TextButton(
           onPressed: () => Navigator.pushNamed(context, '/register'),
-          child: const Text(
-            "Don't have an account? Register →",
-            style: TextStyle(color: kPrimaryGreen, fontSize: 13),
+          child: RichText(
+            text: TextSpan(
+              text: "Don't have an account? ",
+              style: GoogleFonts.outfit(
+                color: const Color(0xFF64748B),
+                fontSize: 14,
+              ),
+              children: [
+                TextSpan(
+                  text: 'Register →',
+                  style: GoogleFonts.outfit(
+                    color: kAccentGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ],
@@ -253,42 +371,70 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           controller: _adminUserCtrl,
           decoration: const InputDecoration(
             hintText: 'Admin username',
-            prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+            prefixIcon: Icon(
+              Icons.admin_panel_settings_outlined,
+              color: Color(0xFF94A3B8),
+            ),
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 16),
         TextField(
           controller: _adminPassCtrl,
           obscureText: !_showAdminPass,
           decoration: InputDecoration(
             hintText: 'Password',
-            prefixIcon: const Icon(Icons.lock_outline),
+            prefixIcon: const Icon(
+              Icons.lock_outline,
+              color: Color(0xFF94A3B8),
+            ),
             suffixIcon: IconButton(
-              icon: Icon(_showAdminPass ? Icons.visibility_off : Icons.visibility),
+              icon: Icon(
+                _showAdminPass ? Icons.visibility_off : Icons.visibility,
+                color: const Color(0xFF94A3B8),
+              ),
               onPressed: () => setState(() => _showAdminPass = !_showAdminPass),
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         SizedBox(
           width: double.infinity,
+          height: 52,
           child: ElevatedButton(
             onPressed: _loading ? null : _loginAdmin,
-            style: _btnStyle(),
             child: _loading
-                ? const SizedBox(width: 20, height: 20,
-                    child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Admin Login'),
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    'Admin Login',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextButton(
+          onPressed: () {}, // Admin-specific reset flow
+          child: Text(
+            'Forgot your password?',
+            style: GoogleFonts.outfit(
+              color: const Color(0xFF64748B),
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ],
     );
   }
 
-  ButtonStyle _btnStyle() => ElevatedButton.styleFrom(
-        backgroundColor: kPrimaryGreen,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      );
+  // Button style removed to use theme-defined ElevatedButtonTheme
 }
