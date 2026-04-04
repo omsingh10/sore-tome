@@ -38,6 +38,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (userAsync is AsyncData) {
       final user = userAsync.value;
       if (user != null) {
+        // We always go to /home; AuthGuard there will now handle
+        // status checks (pending) and role checks.
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         Navigator.pushReplacementNamed(context, '/login');
