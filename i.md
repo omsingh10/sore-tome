@@ -53,8 +53,22 @@ This document tracks the UI/UX overhaul and architectural alignment for the Sero
 - **Arrears Management**: Added an "Overdue Dues" module with resident avatars and a "Send Mass Reminders" action.
 - **Transparency**: Implemented a "Recent Disbursements" table to log and trackauthorized estate expenses.
 
+## Security & Authorization Overhaul (`AuthGuard`)
+
+### 1. Screen-Level Authorization
+- **AuthGuard Implementation**: Introduced a robust `AuthGuard` widget in `lib/widgets/auth_guard.dart`.
+    - **Role Verification**: Dynamically checks user roles and approval status before granting access to specific features.
+    - **Provider Protection**: Ensures data-fetching providers are only initialized *after* user verification to prevent unauthorized API requests.
+- **Improved Routing**: Integrated `AuthGuard` into `MainShell` to secure core application modules (Admin Dashboard, Resident Hub, etc.).
+
+### 2. Approval Workflow (`pending_approval_screen.dart`)
+- **Graceful Onboarding**: Created a dedicated `PendingApprovalScreen` for new users awaiting administrative validation.
+- **UI Design**: Features a premium "Approval in Progress" status indicator with high-contrast typography and clear call-to-actions for contacting support.
+
 ## Technical Alignment
+- **Architecture**: Standardized on a guard-based pattern for route protection.
 - **Typography**: Standardized on `GoogleFonts.outfit`.
 - **Spacing System**: Primary corner radius set to `24dp`/`28dp`.
 - **Shadows**: Soft shadows (`Colors.black.withOpacity(0.04)`) applied for depth without clutter.
 - **Dependencies**: Heavily utilized `flutter_riverpod` for state and `flutter_animate` for premium feel.
+- **Project Infrastructure**: Synchronized backend services with the Flutter frontend for real-time status updates.

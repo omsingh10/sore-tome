@@ -2,26 +2,25 @@
 
 This document tracks technical debt, linting warnings, and deprecated API usage identified during the "The Sero" premium overhaul.
 
-## Static Analysis Summary (Flutter Analyze) - 2026-04-03
+## Static Analysis Summary (Flutter Analyze) - 2026-04-04
 
-### 1. Deprecated Member Usage (38 Issues)
-Most of these are related to the transition to Flutter 3.22+ and require migration to modern equivalents:
-- **`withOpacity`** is deprecated. Recommendation: Use `.withValues(alpha: ...)` or `Color.fromARGB/fromRGBA`.
-    - `lib/screens/ai_chat/ai_chat_screen.dart`: Lines 268, 341, 465, 495, 516, 519...
-    - `lib/screens/funds/funds_screen.dart`: Lines 246, 383...
-- **`Radius.circular` / `BorderRadius`** usage in some areas flagged for potential precision loss.
+### 1. Deprecated Member Usage (56 Issues)
+The issue count has increased from 38 to 56, primarily due to the addition of more UI components and Screens:
+- **`withOpacity`** is deprecated across almost every screen.
+    - `lib/screens/auth/pending_approval_screen.dart`: Lines 150...
+    - `lib/main.dart`: Line 8...
+- **Recommendation**: System-wide migration to `.withValues(alpha: ...)` is now high priority to avoid precision loss.
 
-### 2. Async Safety (12 Issues)
+### 2. Async Safety (14 Issues)
 **Rule: `use_build_context_synchronously`**
-Multiple screens are performing `async` operations (Firestore/AI requests) and then calling `setState` or navigating without checking `if (!mounted)`.
-- `lib/screens/ai_chat/ai_chat_screen.dart`: Within the `_send` logic.
-- `lib/screens/funds/funds_screen.dart`: Within the `_load` logic.
+- Two new async checks identified in the auth flow. Need `if (!mounted)` checks before navigation in `pending_approval_screen.dart` and `auth_guard.dart`.
 
 ### 3. Layout & Widget Quality (4 Issues)
-- **Hardcoded Colors**: Some widgets are still using `Color(0xFF...)` instead of the centralized `kPrimaryGreen` or `kSlateBg` from `app/theme.dart`.
-- **Text Styling**: Some `Text` widgets ARE NOT using `GoogleFonts.outfit`, which breaks brand consistency.
+- **Hardcoded Colors**: Still persisting in newer screens (Auth related).
+- **Text Styling**: Some `Text` widgets in the "Pending Approval" UI require `GoogleFonts.outfit` for consistency.
 
 ## Priority Fixes Needed
-- [ ] Migrate all `withOpacity` to `withValues` to future-proof the "The Sero" graphics engine.
-- [ ] Implement `mounted` checks for all AI and Firestore service calls.
+- [ ] Migrate all `withOpacity` to `withValues` to future-proof the "The Sero" graphics engine (High Priority).
+- [ ] Implement `mounted` checks for all AI, Firestore, and Auth service calls.
 - [ ] Extract remaining hardcoded branding colors to `theme.dart`.
+- [ ] Fix persistent linting markers in `lib/main.dart`.
