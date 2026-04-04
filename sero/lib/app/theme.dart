@@ -75,7 +75,7 @@ ThemeData appTheme() {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(24),
-        side: BorderSide(color: kSlateBorder.withOpacity(0.4), width: 1),
+        side: BorderSide(color: kSlateBorder.withValues(alpha: 0.4), width: 1),
       ),
       margin: EdgeInsets.zero,
     ),

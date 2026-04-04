@@ -82,7 +82,7 @@ class _PostNoticeScreenState extends State<PostNoticeScreen> {
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              initialValue: _tag,
+              value: _tag,
               decoration: InputDecoration(
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),

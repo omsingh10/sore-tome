@@ -79,9 +79,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
               width: 100,
               height: 100,
               decoration: BoxDecoration(
-                color: kPrimaryGreen.withOpacity(0.1),
+                color: kPrimaryGreen.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
-                border: Border.all(color: kPrimaryGreen.withOpacity(0.2)),
+                border: Border.all(color: kPrimaryGreen.withValues(alpha: 0.2)),
               ),
               child: const Icon(Icons.check_circle_outline,
                   color: kPrimaryGreen, size: 56),
@@ -157,7 +157,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   'Admin approval is required before you can log in.',
                   style: GoogleFonts.outfit(
                     fontSize: 14, 
-                    color: Colors.white.withOpacity(0.7),
+                    color: Colors.white.withValues(alpha: 0.7),
                   ),
                 ),
               ),

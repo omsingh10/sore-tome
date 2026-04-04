@@ -265,7 +265,7 @@ class _ActionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+        border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,7 +273,7 @@ class _ActionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: kPrimaryGreen.withOpacity(0.08),
+              color: kPrimaryGreen.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: kPrimaryGreen, size: 20),
@@ -338,7 +338,7 @@ class _ConciergeBubble extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: const BorderRadius.only(topRight: Radius.circular(24), bottomRight: Radius.circular(24), bottomLeft: Radius.circular(24)),
-              border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+              border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,7 +368,7 @@ class _DraftCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+        border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [
@@ -462,7 +462,7 @@ class _FloatingInputConsole extends StatelessWidget {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.white.withOpacity(0), Colors.white.withOpacity(1.0)],
+            colors: [Colors.white.withValues(alpha: 0), Colors.white.withValues(alpha: 1.0)],
             stops: const [0.0, 0.4],
           ),
         ),
@@ -492,7 +492,7 @@ class _FloatingInputConsole extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFFF1F5F9),
                     shape: BoxShape.circle,
-                    border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+                    border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: AnimatedOpacity(
@@ -513,10 +513,10 @@ class _FloatingInputConsole extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: kSlateBorder.withOpacity(0.6)),
+                      border: Border.all(color: kSlateBorder.withValues(alpha: 0.6)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
+                          color: Colors.black.withValues(alpha: 0.06),
                           blurRadius: 15,
                           offset: const Offset(0, 4),
                         ),

@@ -52,7 +52,7 @@ class AdminMaintenanceScreen extends ConsumerWidget {
       children: list.isEmpty
           ? [const Padding(padding: EdgeInsets.all(16), child: Text('No residents in this category.'))]
           : list.map((res) => ListTile(
-                leading: CircleAvatar(backgroundColor: color.withOpacity(0.2), child: Icon(Icons.home, color: color)),
+                leading: CircleAvatar(backgroundColor: color.withValues(alpha: 0.2), child: Icon(Icons.home, color: color)),
                 title: Text('Flat: ${res['flatNumber']}'),
                 subtitle: Text(res['name']),
               )).toList(),

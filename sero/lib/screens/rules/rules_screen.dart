@@ -473,7 +473,7 @@ class _MetricCardState extends State<_MetricCard> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(_pressed ? 0.08 : 0.02),
+                color: Colors.black.withValues(alpha: _pressed ? 0.08 : 0.02),
                 blurRadius: _pressed ? 15 : 10,
                 offset: Offset(0, _pressed ? 4 : 2),
               ),
@@ -495,7 +495,7 @@ class _MetricCardState extends State<_MetricCard> {
                     decoration: BoxDecoration(
                       color: widget.isCenter
                           ? const Color(0xFFF1F5F9)
-                          : widget.iconColor.withOpacity(0.1),
+                          : widget.iconColor.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(widget.icon, color: widget.iconColor, size: 16),
@@ -577,7 +577,7 @@ class _RuleSheetCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
