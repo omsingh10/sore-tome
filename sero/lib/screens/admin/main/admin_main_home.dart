@@ -186,7 +186,6 @@ class AdminMainHome extends ConsumerWidget {
                                 Expanded(
                                   child: ElevatedButton(
                                     onPressed: () {},
-                                    child: const Text("Access Logs"),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFFDBEAFE),
                                       foregroundColor: const Color(0xFF1E40AF),
@@ -198,6 +197,7 @@ class AdminMainHome extends ConsumerWidget {
                                         borderRadius: BorderRadius.circular(16),
                                       ),
                                     ),
+                                    child: const Text("Access Logs"),
                                   ),
                                 ),
                               ],
@@ -238,7 +238,11 @@ class AdminMainHome extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      "${pendingAsync.whenOrNull(data: (users) => users.length.toString().padLeft(2, '0')) ?? '00'}",
+                      pendingAsync.whenOrNull(
+                            data: (users) =>
+                                users.length.toString().padLeft(2, '0'),
+                          ) ??
+                          '00',
                       style: GoogleFonts.outfit(
                         color: const Color(0xFF991B1B),
                         fontSize: 42,
@@ -381,7 +385,7 @@ class AdminMainHome extends ConsumerWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        "\Rs142,850",
+                        "Rs142,850",
                         style: GoogleFonts.outfit(
                           color: Colors.white,
                           fontSize: 42,
