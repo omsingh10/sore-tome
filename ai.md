@@ -73,3 +73,51 @@ Here is how our architecture compares to common alternatives:
 
 ### Summary
 The AI module has evolved from a basic single-API chatbot into a fault-tolerant, high-performance orchestration layer. It is built to be vendor-agnostic, incredibly fast, and horizontally scalable.
+
+---
+
+## API Keys & Environment Setup
+
+To run the Resilience Mesh, you need API keys from the multiple providers we use. Because we engineered a fallback routing system, if a non-critical API key is missing or rate-limited, Langchain will simply skip it and move to the next layer. All keys need to be configured in your `society-backend/.env` file.
+
+### 1. Groq (Primary High-Speed Inference)
+- **What it provides:** `llama-3.1-8b-instant`, `llama-3.3-70b-versatile` (Lightning fast answers).
+- **How to get it:** Go to [console.groq.com](https://console.groq.com) → API Keys → Create New Key.
+- **Env variable:** `GROQ_API_KEY`
+
+### 2. Cerebras (Primary Fast Fallback)
+- **What it provides:** `llama3.1-8b`, `llama3.3-70b` (Ultra-fast failover for Llama).
+- **How to get it:** Go to [cloud.cerebras.ai](https://cloud.cerebras.ai/) → Sign In → Get API Key.
+- **Env variable:** `CEREBRAS_API_KEY`
+
+### 3. Cloudflare Workers AI (Secondary Safe Fallback)
+- **What it provides:** `@cf/meta/llama-3.1-8b-instruct` (Generous daily free tier).
+- **How to get it:** Go to the Cloudflare Dashboard → AI → Workers AI → Create an API Token (with Workers AI Read/Write permissions) and copy your Account ID.
+- **Env variables:** `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN`
+
+### 4. OpenAI (Core Embeddings & Final Fallback)
+- **What it provides:** `text-embedding-3-small` (required for pgvector) and `gpt-4o` variants (as the final failover).
+- **How to get it:** Go to [platform.openai.com](https://platform.openai.com) → API Keys → Create new secret key.
+- **Env variable:** `OPENAI_API_KEY`
+
+### 5. Anthropic (Legacy & Experimental)
+- **What it provides:** `claude-3-5-sonnet` (Used heavily in Phase 1 prototyping).
+- **How to get it:** Go to [console.anthropic.com](https://console.anthropic.com) → API Keys.
+- **Env variable:** `ANTHROPIC_API_KEY`
+
+*(Note: Keys for DeepInfra and Fireworks exist in the `.env.example` as placeholders in case we wish to plug them into our routing mesh in the future.)*
+
+---
+
+## Remaining Infrastructure / Future Work
+
+Based on our current trajectory, here are the remaining pieces to fully harden the AI system:
+
+1. **Background AI Task Queue Optimization (Redis + BullMQ)**
+   - While `AIQueueService` is prototyped, we must wire the Redis worker to handle massive batch extractions (e.g., parsing 50-page PDF rulebooks asynchronously) so the AI Gateway doesn't block Express HTTP threads.
+2. **Metadata Tagging strictly by Society ID**
+   - Ensure the vector chunking pipeline rigidly forces `society_id` metadata on every document chunk before inserting into pgvector to prevent cross-tenant data leaks.
+3. **Structured Output Validation (Zod)**
+   - Refactor the `AIExtractionService` to strictly validate JSON AI responses using Zod before saving them to the database, guaranteeing the structure is never corrupted by hallucinated JSON formatting.
+4. **Rate Limit Circuit Breakers**
+   - Implement temporary "circuit breakers" using Redis to completely bypass a failing provider for a set duration (e.g., 5 seconds) instead of waiting for a network timeout from an overloaded API during every request.
