@@ -84,130 +84,128 @@ class AdminMainHome extends ConsumerWidget {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             sliver: SliverToBoxAdapter(
-              child:
-                  Container(
-                        padding: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.04),
-                              blurRadius: 24,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(28),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.04),
+                      blurRadius: 24,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF94A3B8),
+                            shape: BoxShape.circle,
+                          ),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    color: Color(0xFF94A3B8),
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "LIVE ACTIVITY",
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF64748B),
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
-                                    letterSpacing: 1.2,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text(
-                                  "42",
-                                  style: GoogleFonts.outfit(
-                                    color: const Color(0xFF1F2937),
-                                    fontSize: 84,
-                                    fontWeight: FontWeight.w800,
-                                    height: 0.9,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 8),
-                                    child: Text(
-                                      "Residents\nOn-Site",
-                                      style: GoogleFonts.outfit(
-                                        color: const Color(0xFF94A3B8),
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w600,
-                                        height: 1.1,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 32),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: ElevatedButton.icon(
-                                    onPressed: () => Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            const AdminUsersScreen(),
-                                      ),
-                                    ),
-                                    icon: const Icon(
-                                      Icons.remove_red_eye,
-                                      size: 18,
-                                    ),
-                                    label: const Text("Manage Access"),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFF345D7E),
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: ElevatedButton(
-                                    onPressed: () {},
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: const Color(0xFFDBEAFE),
-                                      foregroundColor: const Color(0xFF1E40AF),
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 16,
-                                      ),
-                                      elevation: 0,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                    ),
-                                    child: const Text("Access Logs"),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
+                        const SizedBox(width: 8),
+                        Text(
+                          "LIVE ACTIVITY",
+                          style: GoogleFonts.outfit(
+                            color: const Color(0xFF64748B),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.2,
+                          ),
                         ),
-                      )
-                      .animate()
-                      .fade(delay: 300.ms)
-                      .scale(begin: const Offset(0.95, 0.95)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          "42",
+                          style: GoogleFonts.outfit(
+                            color: const Color(0xFF1F2937),
+                            fontSize: 84,
+                            fontWeight: FontWeight.w800,
+                            height: 0.9,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Text(
+                              "Residents\nOn-Site",
+                              style: GoogleFonts.outfit(
+                                color: const Color(0xFF94A3B8),
+                                fontSize: 20,
+                                fontWeight: FontWeight.w600,
+                                height: 1.1,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 32),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const AdminUsersScreen(),
+                              ),
+                            ),
+                            icon: const Icon(
+                              Icons.remove_red_eye,
+                              size: 18,
+                            ),
+                            label: const Text("Manage Access"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF345D7E),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () {},
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFFDBEAFE),
+                              foregroundColor: const Color(0xFF1E40AF),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 16,
+                              ),
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: const Text("Access Logs"),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              )
+                  .animate()
+                  .fade(delay: 300.ms)
+                  .scale(begin: const Offset(0.95, 0.95)),
             ),
           ),
 
@@ -238,7 +236,11 @@ class AdminMainHome extends ConsumerWidget {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      pendingAsync.whenOrNull(data: (users) => users.length.toString().padLeft(2, '0')) ?? '00',
+                      pendingAsync.whenOrNull(
+                            data: (users) =>
+                                users.length.toString().padLeft(2, '0'),
+                          ) ??
+                          '00',
                       style: GoogleFonts.outfit(
                         color: const Color(0xFF991B1B),
                         fontSize: 42,

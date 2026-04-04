@@ -48,6 +48,7 @@ dependencies:
   riverpod_annotation: ^2.3.5
   google_fonts: 
   flutter_animate: 
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:

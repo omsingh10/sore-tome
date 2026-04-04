@@ -40,7 +40,12 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
           children: [
             // --- CLEAN PREMIUM HEADER ---
             Container(
-              padding: EdgeInsets.fromLTRB(24, MediaQuery.of(context).padding.top + 16, 24, 32),
+              padding: EdgeInsets.fromLTRB(
+                24,
+                MediaQuery.of(context).padding.top + 16,
+                24,
+                32,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -73,7 +78,11 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+                      const Icon(
+                        Icons.chevron_right,
+                        size: 16,
+                        color: Color(0xFF94A3B8),
+                      ),
                       Text(
                         "Residents",
                         style: GoogleFonts.outfit(
@@ -200,8 +209,14 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   ),
                   labelColor: Color(0xFF1F2937),
                   unselectedLabelColor: Color(0xFF64748B),
-                  labelStyle: TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
-                  unselectedLabelStyle: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  labelStyle: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 13,
+                  ),
+                  unselectedLabelStyle: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                  ),
                   tabs: [
                     Tab(text: "Pending"),
                     Tab(text: "Residents List"),
@@ -213,9 +228,7 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
 
             // --- LIST CONTENT ---
             Expanded(
-              child: TabBarView(
-                children: [_PendingTab(), _AllUsersTab()],
-              ),
+              child: TabBarView(children: [_PendingTab(), _AllUsersTab()]),
             ),
           ],
         ),
@@ -261,7 +274,6 @@ class _SmallMetricRow extends StatelessWidget {
   }
 }
 
-
 class _PendingTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -274,7 +286,11 @@ class _PendingTab extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.person_outline_rounded, size: 64, color: Color(0xFFCBD5E1)),
+                const Icon(
+                  Icons.person_outline_rounded,
+                  size: 64,
+                  color: Color(0xFFCBD5E1),
+                ),
                 const SizedBox(height: 16),
                 Text(
                   'No pending approvals',
@@ -312,7 +328,11 @@ class _PendingTab extends ConsumerWidget {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: const Color(0xFFDBEAFE),
-                    child: const Icon(Icons.person_add_rounded, color: Color(0xFF1E40AF), size: 20),
+                    child: const Icon(
+                      Icons.person_add_rounded,
+                      color: Color(0xFF1E40AF),
+                      size: 20,
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Expanded(
@@ -345,23 +365,32 @@ class _PendingTab extends ConsumerWidget {
                       _ActionButton(
                         icon: Icons.check_rounded,
                         color: const Color(0xFF10B981),
-                        onTap: () => ref.read(userOperationsProvider).approveUser(u.id),
+                        onTap: () => ref
+                            .read(userOperationsProvider)
+                            .approveUser(u.id),
                       ),
                       const SizedBox(width: 8),
                       _ActionButton(
                         icon: Icons.close_rounded,
                         color: const Color(0xFFEF4444),
-                        onTap: () => ref.read(userOperationsProvider).rejectUser(u.id, 'Rejected by admin'),
+                        onTap: () => ref
+                            .read(userOperationsProvider)
+                            .rejectUser(u.id, 'Rejected by admin'),
                       ),
                     ],
                   ),
                 ],
               ),
-            ).animate().fade(delay: (index * 100).ms).slideX(begin: 0.1, end: 0);
+            )
+                .animate()
+                .fade(delay: (index * 100).ms)
+                .slideX(begin: 0.1, end: 0);
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF345D7E))),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF345D7E)),
+      ),
       error: (e, st) => Center(child: Text('Error: $e')),
     );
   }
@@ -438,10 +467,16 @@ class _AllUsersTab extends ConsumerWidget {
                   children: [
                     CircleAvatar(
                       radius: 24,
-                      backgroundColor: isExempt ? const Color(0xFFFEF3C7) : const Color(0xFFF1F5F9),
+                      backgroundColor: isExempt
+                          ? const Color(0xFFFEF3C7)
+                          : const Color(0xFFF1F5F9),
                       child: Icon(
-                        isExempt ? Icons.no_accounts_rounded : Icons.person_rounded,
-                        color: isExempt ? const Color(0xFFD97706) : const Color(0xFF64748B),
+                        isExempt
+                            ? Icons.no_accounts_rounded
+                            : Icons.person_rounded,
+                        color: isExempt
+                            ? const Color(0xFFD97706)
+                            : const Color(0xFF64748B),
                         size: 20,
                       ),
                     ),
@@ -471,15 +506,22 @@ class _AllUsersTab extends ConsumerWidget {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
                       decoration: BoxDecoration(
-                        color: isExempt ? const Color(0xFFFEF3C7) : const Color(0xFFDBEAFE),
+                        color: isExempt
+                            ? const Color(0xFFFEF3C7)
+                            : const Color(0xFFDBEAFE),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         isExempt ? 'Exempt' : 'Paying',
                         style: GoogleFonts.outfit(
-                          color: isExempt ? const Color(0xFFD97706) : const Color(0xFF1E40AF),
+                          color: isExempt
+                              ? const Color(0xFFD97706)
+                              : const Color(0xFF1E40AF),
                           fontWeight: FontWeight.w700,
                           fontSize: 11,
                         ),
@@ -492,7 +534,9 @@ class _AllUsersTab extends ConsumerWidget {
           },
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator(color: Color(0xFF345D7E))),
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF345D7E)),
+      ),
       error: (e, st) => Center(child: Text('Error: $e')),
     );
   }

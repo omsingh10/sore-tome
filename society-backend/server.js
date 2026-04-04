@@ -1,8 +1,17 @@
+const Sentry = require("@sentry/node");
+const { logger } = require("./src/shared/Logger");
+
+// ─── Init Sentry ─────────────────────────────────────────────────────────────
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV,
+  tracesSampleRate: 1.0,
+});
+
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const morgan = require("morgan");
 const { initFirebase } = require("./config/firebase");
 
 // ─── Init Firebase ─────────────────────────────────────────────────────────────
@@ -12,8 +21,11 @@ const app = express();
 
 // ─── Middleware ────────────────────────────────────────────────────────────────
 app.use(helmet());
-app.use(cors({ origin: "*" })); // Restrict to your domain in production
-app.use(morgan("dev"));
+app.use(cors({ origin: "*" })); 
+app.use((req, res, next) => {
+  logger.info({ method: req.method, url: req.url }, "Incoming Request");
+  next();
+});
 app.use(express.json({ limit: "10kb" }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
@@ -24,7 +36,7 @@ app.use("/issues", require("./routes/issues"));
 app.use("/funds", require("./routes/funds"));
 app.use("/rules", require("./routes/rules"));
 app.use("/events", require("./routes/events"));
-app.use("/ai", require("./routes/ai"));
+app.use("/ai", require("./src/routes/ai").default);
 app.use("/channels", require("./routes/channels"));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
@@ -38,8 +50,11 @@ app.use((req, res) => {
 });
 
 // ─── Global error handler ─────────────────────────────────────────────────────
+// Sentry error handler must be before any other error middleware
+Sentry.setupExpressErrorHandler(app);
+
 app.use((err, req, res, next) => {
-  console.error("Unhandled error:", err);
+  logger.error(err, "Unhandled error occured");
   res.status(500).json({ error: "Internal server error" });
 });
 

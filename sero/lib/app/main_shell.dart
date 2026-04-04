@@ -40,25 +40,52 @@ class _MainShellState extends ConsumerState<MainShell> {
     final pages = [
       _getHomeForRole(role),
       if (role != 'treasurer')
-        role == 'main_admin' ? const AdminChannelsScreen() : const ChannelsListScreen(),
+        role == 'main_admin'
+            ? const AdminChannelsScreen()
+            : const ChannelsListScreen(),
       if (role != 'treasurer') const IssuesScreen(),
       if (role != 'treasurer') const RulesScreen(),
-      if (role == 'resident' || role == 'main_admin' || role == 'treasurer') const FundsScreen(),
+      if (role == 'resident' || role == 'main_admin' || role == 'treasurer')
+        const FundsScreen(),
       if (role != 'treasurer') const AiChatScreen(),
     ];
 
     final navItems = [
-      _NavItemData(icon: Icons.home_outlined, activeIcon: Icons.home_rounded, label: 'Home'),
+      _NavItemData(
+        icon: Icons.home_outlined,
+        activeIcon: Icons.home_rounded,
+        label: 'Home',
+      ),
       if (role != 'treasurer')
-        _NavItemData(icon: Icons.chat_outlined, activeIcon: Icons.chat_rounded, label: 'Channels'),
+        _NavItemData(
+          icon: Icons.chat_outlined,
+          activeIcon: Icons.chat_rounded,
+          label: 'Channels',
+        ),
       if (role != 'treasurer')
-        _NavItemData(icon: Icons.list_alt_outlined, activeIcon: Icons.list_alt_rounded, label: 'Issues'),
+        _NavItemData(
+          icon: Icons.list_alt_outlined,
+          activeIcon: Icons.list_alt_rounded,
+          label: 'Issues',
+        ),
       if (role != 'treasurer')
-        _NavItemData(icon: Icons.description_outlined, activeIcon: Icons.description_rounded, label: 'Rules'),
+        _NavItemData(
+          icon: Icons.description_outlined,
+          activeIcon: Icons.description_rounded,
+          label: 'Rules',
+        ),
       if (role == 'resident' || role == 'main_admin' || role == 'treasurer')
-        _NavItemData(icon: Icons.account_balance_wallet_outlined, activeIcon: Icons.account_balance_wallet_rounded, label: 'Funds'),
+        _NavItemData(
+          icon: Icons.account_balance_wallet_outlined,
+          activeIcon: Icons.account_balance_wallet_rounded,
+          label: 'Funds',
+        ),
       if (role != 'treasurer')
-        _NavItemData(icon: Icons.smart_toy_outlined, activeIcon: Icons.smart_toy_rounded, label: 'AI Help'),
+        _NavItemData(
+          icon: Icons.smart_toy_outlined,
+          activeIcon: Icons.smart_toy_rounded,
+          label: 'AI Help',
+        ),
     ];
 
     return Scaffold(
@@ -110,10 +137,7 @@ class _FloatingPillNavbar extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(40),
-          border: Border.all(
-            color: const Color(0xFFE2E8F0),
-            width: 1,
-          ),
+          border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.04),
@@ -147,7 +171,9 @@ class _FloatingPillNavbar extends StatelessWidget {
                   children: [
                     Icon(
                       isSelected ? item.activeIcon : item.icon,
-                      color: isSelected ? Colors.white : const Color(0xFF94A3B8),
+                      color: isSelected
+                          ? Colors.white
+                          : const Color(0xFF94A3B8),
                       size: 20,
                     ),
                     if (isSelected) ...[
@@ -172,4 +198,3 @@ class _FloatingPillNavbar extends StatelessWidget {
     );
   }
 }
-
