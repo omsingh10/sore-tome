@@ -1,5 +1,4 @@
 import { ChatGroq } from "@langchain/groq";
-import { ChatOpenAI } from "@langchain/openai";
 import { CloudflareWorkersAI } from "@langchain/cloudflare";
 import { ChatCerebras } from "@langchain/cerebras";
 import { Runnable, RunnableConfig } from "@langchain/core/runnables";
@@ -23,8 +22,6 @@ const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
   "llama-3.1-8b": { name: "Cerebras", costPer1MInput: 0.1, costPer1MOutput: 0.1 },
   "llama-3.3-70b": { name: "Cerebras", costPer1MInput: 0.6, costPer1MOutput: 0.6 },
   "@cf/meta/llama-3.1-8b-instruct": { name: "Cloudflare", costPer1MInput: 0.05, costPer1MOutput: 0.05 },
-  "gpt-4o-mini": { name: "OpenAI", costPer1MInput: 0.15, costPer1MOutput: 0.6 },
-  "gpt-4o": { name: "OpenAI", costPer1MInput: 5.0, costPer1MOutput: 15.0 },
 };
 
 export class ProviderService {
@@ -68,7 +65,7 @@ export class ProviderService {
   ): Promise<Runnable> {
     const startTime = Date.now();
 
-    // 1. Define Model Instances
+    // 1. Define Model Instances (Free Tiers Only)
     const models = {
       groq: taskType === "EXTRACTION" 
         ? new ChatGroq({ apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile", temperature: 0 })
@@ -81,13 +78,10 @@ export class ProviderService {
         cloudflareAccountId: process.env.CLOUDFLARE_ACCOUNT_ID,
         cloudflareApiToken: process.env.CLOUDFLARE_API_TOKEN,
       }),
-      openai: taskType === "EXTRACTION"
-        ? new ChatOpenAI({ apiKey: process.env.OPENAI_API_KEY, modelName: "gpt-4o", temperature: 0 })
-        : new ChatOpenAI({ apiKey: process.env.OPENAI_API_KEY, modelName: "gpt-4o-mini", temperature: 0.7 }),
     };
 
     // 2. Dynamic Fallback Chain based on Availability
-    const chainIds = ["groq", "cerebras", "cloudflare", "openai"];
+    const chainIds = ["groq", "cerebras", "cloudflare"];
     const activeChain: Runnable[] = [];
 
     for (const id of chainIds) {
@@ -97,9 +91,10 @@ export class ProviderService {
     }
 
     if (activeChain.length === 0) {
-      logger.warn(context, "All providers down! Falling back to emergency OpenAI");
-      activeChain.push(models.openai);
+      logger.warn(context, "All providers down! Falling back to emergency Cloudflare");
+      activeChain.push(models.cloudflare);
     }
+
 
     const primary = activeChain[0];
     const fallbacks = activeChain.slice(1);
@@ -114,7 +109,6 @@ export class ProviderService {
         const result = await originalInvoke(input, options);
         const duration = Date.now() - startTime;
         
-        let providerUsed = "unknown";
         let modelName = "unknown";
         let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
 
@@ -140,8 +134,6 @@ export class ProviderService {
 
         return result;
       } catch (error: any) {
-        // Report failure to circuit breaker if we know which one failed
-        // Logic simplified: if external call fails, we might just report the first in chain or all
         logger.error({
           ...context,
           error: error.message,

@@ -1,5 +1,5 @@
 import { PGVectorStore } from "@langchain/community/vectorstores/pgvector";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { CloudflareEmbeddings } from "./CloudflareEmbeddings";
 import { Pool, PoolConfig } from "pg";
 import { Document } from "@langchain/core/documents";
 import { logger } from "../../shared/Logger";
@@ -10,18 +10,20 @@ dotenv.config();
 export class VectorStoreService {
   private static instance: VectorStoreService;
   private pool: Pool;
-  private embeddings: OpenAIEmbeddings;
+  private embeddings: CloudflareEmbeddings;
 
   private constructor() {
     const config: PoolConfig = {
       connectionString: process.env.DATABASE_URL,
     };
     this.pool = new Pool(config);
-    this.embeddings = new OpenAIEmbeddings({
-      apiKey: process.env.OPENAI_API_KEY,
-      modelName: "text-embedding-3-small",
+    this.embeddings = new CloudflareEmbeddings({
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+      apiToken: process.env.CLOUDFLARE_API_TOKEN!,
+      model: "@cf/baai/bge-small-en-v1.5",
     });
   }
+
 
   public static getInstance(): VectorStoreService {
     if (!VectorStoreService.instance) {
