@@ -1,5 +1,5 @@
 import IORedis from "ioredis";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { CloudflareEmbeddings } from "./CloudflareEmbeddings";
 import { logger } from "../../shared/Logger";
 import { Pool } from "pg";
 
@@ -7,15 +7,16 @@ export class SemanticCacheService {
   private static instance: SemanticCacheService;
   private redis: IORedis;
   private pool: Pool;
-  private embeddings: OpenAIEmbeddings;
+  private embeddings: CloudflareEmbeddings;
   private readonly SIMILARITY_THRESHOLD = 0.95;
 
   private constructor() {
     this.redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
     this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    this.embeddings = new OpenAIEmbeddings({
-      apiKey: process.env.OPENAI_API_KEY,
-      modelName: "text-embedding-3-small",
+    this.embeddings = new CloudflareEmbeddings({
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+      apiToken: process.env.CLOUDFLARE_API_TOKEN!,
+      model: "@cf/baai/bge-small-en-v1.5",
     });
   }
 

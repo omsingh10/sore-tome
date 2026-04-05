@@ -33,6 +33,44 @@ export class ParserService {
   }
 
   /**
+   * Processes a Base64 encoded file (Image or PDF) for AI Chat context.
+   */
+  public async parseBase64(
+    base64String: string, 
+    options: { requestId: string; userId: string; societyId: string }
+  ): Promise<{ content: string; metadata: any }> {
+    const startTime = Date.now();
+    try {
+      // 1. Decode Base64
+      const base64Data = base64String.split(';base64,').pop();
+      if (!base64Data) throw new Error("Invalid Base64 format");
+      const buffer = Buffer.from(base64Data, 'base64');
+
+      // 2. OCR Strategy (Images/PDFs)
+      const worker = await createWorker("eng");
+      const { data: { text } } = await worker.recognize(buffer);
+      await worker.terminate();
+
+      logger.info({
+        ...options,
+        latency_ms: Date.now() - startTime,
+        status: "success"
+      }, "AI Attachment Parsed Successfully");
+
+      return {
+        content: text,
+        metadata: {
+          description: `Extracted text from attachment (${text.length} chars)`,
+          timestamp: new Date().toISOString()
+        }
+      };
+    } catch (error: any) {
+      logger.error({ ...options, error: error.message }, "AI Attachment Parsing Failed");
+      throw error;
+    }
+  }
+
+  /**
    * Processes a document with Heading-Aware Semantic Chunking and OCR Fallback.
    */
   public async processFile(filePath: string, society_id: string, options: { requestId: string }): Promise<Document[]> {

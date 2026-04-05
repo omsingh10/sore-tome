@@ -82,20 +82,28 @@ export class AIExtractionService {
           error: parseError.message,
         });
 
-        const repairResponse = await model.invoke(repairInput);
-        const repairedOutput = repairResponse.content.toString();
-        const parsed = await parser.parse(repairedOutput);
+        try {
+          const repairResponse = await model.invoke(repairInput);
+          const repairedOutput = repairResponse.content.toString();
+          const parsed = await parser.parse(repairedOutput);
 
-        logger.info({ 
-          ...context, 
-          latency_ms: Date.now() - startTime,
-          status: "repaired" 
-        }, "AI Extraction: Successful after repair");
+          logger.info({ 
+            ...context, 
+            latency_ms: Date.now() - startTime,
+            status: "repaired" 
+          }, "AI Extraction: Successful after repair");
 
-        return { raw: rawOutput, parsed, confidence: 0.75 };
+          return { raw: rawOutput, parsed, confidence: 0.75 };
+        } catch (finalError) {
+          logger.error({ ...context, error: (finalError as any).message }, "AI Extraction: Repair failed, returning partial data");
+          // Throw a special error that the route can catch to return partialData
+          const error: any = new Error("Strict validation failed after repair");
+          error.raw = rawOutput;
+          throw error;
+        }
       }
     } catch (error: any) {
-      logger.error({ ...context, error: error.message, status: "failed" }, "AI Extraction: Hardened loop failed");
+      logger.error({ ...context, error: error.message, status: "failed" }, "AI Extraction: Pipeline failed");
       throw error;
     }
   }
