@@ -54,7 +54,7 @@ ThemeData appTheme() {
       secondary: kPrimaryBlue,
       tertiary: kAccentGreen,
       surface: Colors.white,
-      background: kSlateBg,
+      surfaceContainer: kSlateBg,
       onPrimary: Colors.white,
     ),
     scaffoldBackgroundColor: kSlateBg,

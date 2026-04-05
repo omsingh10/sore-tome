@@ -311,6 +311,7 @@ class _PendingTab extends ConsumerWidget {
           itemBuilder: (context, index) {
             final u = users[index];
             return Container(
+<<<<<<< HEAD
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
@@ -320,6 +321,19 @@ class _PendingTab extends ConsumerWidget {
                     color: Colors.black.withValues(alpha: 0.04),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
+=======
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 20,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+>>>>>>> 69c7150 (feat(ai): harden AI system to V3.2.1)
                   ),
                 ],
               ),

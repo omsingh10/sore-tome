@@ -84,6 +84,7 @@ class AdminMainHome extends ConsumerWidget {
           SliverPadding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             sliver: SliverToBoxAdapter(
+<<<<<<< HEAD
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
@@ -109,6 +110,21 @@ class AdminMainHome extends ConsumerWidget {
                             color: Color(0xFF94A3B8),
                             shape: BoxShape.circle,
                           ),
+=======
+              child:
+                  Container(
+                        padding: const EdgeInsets.all(24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(28),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 24,
+                              offset: const Offset(0, 8),
+                            ),
+                          ],
+>>>>>>> 69c7150 (feat(ai): harden AI system to V3.2.1)
                         ),
                         const SizedBox(width: 8),
                         Text(
