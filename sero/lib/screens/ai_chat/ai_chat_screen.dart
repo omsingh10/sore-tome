@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../app/theme.dart';
 import '../../services/ai_service.dart';
 import '../../widgets/brand_logo.dart';
@@ -21,14 +24,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
   bool _loading = false;
   bool _isFocused = false; // Add focus state
 
+  // Attachment State
+  final ImagePicker _picker = ImagePicker();
+  XFile? _selectedImage;
+  String? _base64Image;
+
   @override
   void initState() {
     super.initState();
-    _messages.add({
-      'role': 'assistant',
-      'content': "I've prepared a draft notice for the North Gate maintenance. Please review the details below:",
-      'isDraft': true,
-    });
+    // No more hardcoded message
     
     // Add listener to track focus changes for animation
     _focusNode.addListener(() {
@@ -46,19 +50,54 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.dispose();
   }
 
+  Future<void> _pickImage() async {
+    final XFile? image = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 70,
+    );
+    if (image != null) {
+      final bytes = await image.readAsBytes();
+      setState(() {
+        _selectedImage = image;
+        _base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
+      });
+    }
+  }
+
+  void _removeImage() {
+    setState(() {
+      _selectedImage = null;
+      _base64Image = null;
+    });
+  }
+
   void _send() async {
     final text = _msgCtrl.text.trim();
-    if (text.isEmpty || _loading) return;
+    if ((text.isEmpty && _selectedImage == null) || _loading) return;
+    
+    final currentImage = _selectedImage;
+    final currentBase64 = _base64Image;
+
     _msgCtrl.clear();
+    _removeImage(); // Clear selection after sending
+
     setState(() {
-      _messages.add({'role': 'user', 'content': text});
+      _messages.add({
+        'role': 'user', 
+        'content': text,
+        'imagePath': currentImage?.path,
+      });
       _loading = true;
     });
     _scrollToBottom();
-    final reply = await _aiService.sendMessage(text);
+
+    final data = await _aiService.sendMessage(text, base64Image: currentBase64);
     if (!mounted) return;
     setState(() {
-      _messages.add({'role': 'assistant', 'content': reply});
+      _messages.add({
+        'role': 'assistant', 
+        ...data,
+      });
       _loading = false;
     });
     _scrollToBottom();
@@ -89,21 +128,20 @@ class _AiChatScreenState extends State<AiChatScreen> {
               const _BrandingHeader(),
               const _ConciergeHero(),
               const _QuickActionTiles(),
-              
+
               SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 24,
+                ),
                 sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final msg = _messages[index];
-                      return _ConciergeBubble(
-                        content: msg['content'],
-                        isUser: msg['role'] == 'user',
-                        isDraft: msg['isDraft'] ?? false,
-                      );
-                    },
-                    childCount: _messages.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final msg = _messages[index];
+                    return _ConciergeBubble(
+                      message: msg,
+                      isUser: msg['role'] == 'user',
+                    );
+                  }, childCount: _messages.length),
                 ),
               ),
 
@@ -115,7 +153,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                   ),
                 ),
 
-              const SliverToBoxAdapter(child: SizedBox(height: 240)), 
+              const SliverToBoxAdapter(child: SizedBox(height: 240)),
             ],
           ),
 
@@ -124,6 +162,9 @@ class _AiChatScreenState extends State<AiChatScreen> {
             focusNode: _focusNode,
             isFocused: _isFocused,
             onSend: _send,
+            onPickImage: _pickImage,
+            onRemoveImage: _removeImage,
+            imagePath: _selectedImage?.path,
           ),
         ],
       ),
@@ -173,14 +214,25 @@ class _BrandingHeader extends StatelessWidget {
             ),
             Row(
               children: [
-                const Icon(Icons.notifications_none_rounded, color: Color(0xFF64748B), size: 24),
+                const Icon(
+                  Icons.notifications_none_rounded,
+                  color: Color(0xFF64748B),
+                  size: 24,
+                ),
                 const SizedBox(width: 16),
                 Container(
                   width: 38,
                   height: 38,
-                  decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFF1F5F9)),
+                  decoration: const BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Color(0xFFF1F5F9),
+                  ),
                   clipBehavior: Clip.antiAlias,
-                  child: const Icon(Icons.person_outline_rounded, color: Color(0xFF64748B), size: 20),
+                  child: const Icon(
+                    Icons.person_outline_rounded,
+                    color: Color(0xFF64748B),
+                    size: 20,
+                  ),
                 ),
               ],
             ),
@@ -243,10 +295,26 @@ class _QuickActionTiles extends StatelessWidget {
           childAspectRatio: 1.2,
         ),
         delegate: SliverChildListDelegate([
-          _ActionCard(icon: Icons.campaign_rounded, title: 'Communication', subtitle: 'Draft notices &\nannouncements'),
-          _ActionCard(icon: Icons.insert_chart_rounded, title: 'Data Digest', subtitle: 'Analyze resident\ntrends'),
-          _ActionCard(icon: Icons.gavel_rounded, title: 'Rule Auditor', subtitle: 'Bylaw compliance\nchecks'),
-          _ActionCard(icon: Icons.account_balance_wallet_rounded, title: 'Financials', subtitle: 'Budget & levy\ntracking'),
+          _ActionCard(
+            icon: Icons.campaign_rounded,
+            title: 'Communication',
+            subtitle: 'Draft notices &\nannouncements',
+          ),
+          _ActionCard(
+            icon: Icons.insert_chart_rounded,
+            title: 'Data Digest',
+            subtitle: 'Analyze resident\ntrends',
+          ),
+          _ActionCard(
+            icon: Icons.gavel_rounded,
+            title: 'Rule Auditor',
+            subtitle: 'Bylaw compliance\nchecks',
+          ),
+          _ActionCard(
+            icon: Icons.account_balance_wallet_rounded,
+            title: 'Financials',
+            subtitle: 'Budget & levy\ntracking',
+          ),
         ]),
       ),
     );
@@ -256,7 +324,11 @@ class _QuickActionTiles extends StatelessWidget {
 class _ActionCard extends StatelessWidget {
   final IconData icon;
   final String title, subtitle;
-  const _ActionCard({required this.icon, required this.title, required this.subtitle});
+  const _ActionCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -265,7 +337,7 @@ class _ActionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+        border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -273,15 +345,29 @@ class _ActionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: kPrimaryGreen.withOpacity(0.08),
+              color: kPrimaryGreen.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(icon, color: kPrimaryGreen, size: 20),
           ),
           const Spacer(),
-          Text(title, style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+          Text(
+            title,
+            style: GoogleFonts.outfit(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFF1E293B),
+            ),
+          ),
           const SizedBox(height: 4),
-          Text(subtitle, style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8), height: 1.3)),
+          Text(
+            subtitle,
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              color: const Color(0xFF94A3B8),
+              height: 1.3,
+            ),
+          ),
         ],
       ),
     ).animate().fade().scale(delay: 200.ms);
@@ -289,19 +375,38 @@ class _ActionCard extends StatelessWidget {
 }
 
 class _ConciergeBubble extends StatelessWidget {
-  final String content;
-  final bool isUser, isDraft;
+  final Map<String, dynamic> message;
+  final bool isUser;
 
-  const _ConciergeBubble({required this.content, required this.isUser, this.isDraft = false});
+  const _ConciergeBubble({required this.message, required this.isUser});
 
   @override
   Widget build(BuildContext context) {
+    final content = message['reply'] ?? message['content'] ?? message['partialData'] ?? 'No response content';
+    final isDraft = message['type'] == 'draft' || (message['isDraft'] ?? false);
+
     if (isUser) {
       return Padding(
         padding: const EdgeInsets.only(bottom: 24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
+            if (message['imagePath'] != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  width: 150,
+                  height: 150,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    image: DecorationImage(
+                      image: FileImage(File(message['imagePath'])),
+                      fit: BoxFit.cover,
+                    ),
+                    border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
+                  ),
+                ),
+              ),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
               decoration: const BoxDecoration(
@@ -310,11 +415,21 @@ class _ConciergeBubble extends StatelessWidget {
               ),
               child: Text(
                 content,
-                style: GoogleFonts.outfit(color: Colors.white, fontSize: 13, height: 1.5),
+                style: GoogleFonts.outfit(
+                  color: Colors.white,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
               ),
             ),
             const SizedBox(height: 6),
-            Text('14:22 PM', style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF94A3B8))),
+            Text(
+              'Just now',
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                color: const Color(0xFF94A3B8),
+              ),
+            ),
           ],
         ),
       );
@@ -327,9 +442,21 @@ class _ConciergeBubble extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.smart_toy_rounded, size: 16, color: kPrimaryGreen),
+              const Icon(
+                Icons.smart_toy_rounded,
+                size: 16,
+                color: kPrimaryGreen,
+              ),
               const SizedBox(width: 8),
-              Text('CONCIERGE AI', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1, color: kPrimaryGreen)),
+              Text(
+                'CONCIERGE AI',
+                style: GoogleFonts.outfit(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1,
+                  color: kPrimaryGreen,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
@@ -337,22 +464,129 @@ class _ConciergeBubble extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: const BorderRadius.only(topRight: Radius.circular(24), bottomRight: Radius.circular(24), bottomLeft: Radius.circular(24)),
-              border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+              borderRadius: const BorderRadius.only(
+                topRight: Radius.circular(24),
+                bottomRight: Radius.circular(24),
+                bottomLeft: Radius.circular(24),
+              ),
+              border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(content, style: GoogleFonts.outfit(fontSize: 14, color: const Color(0xFF334155), height: 1.5)),
-                if (isDraft) ...[
+                Text(
+                  content,
+                  style: GoogleFonts.outfit(
+                    fontSize: 14,
+                    color: const Color(0xFF334155),
+                    height: 1.5,
+                  ),
+                ),
+                if (message['warning'] != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFFEDD5)),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.warning_amber_rounded, size: 14, color: Color(0xFFD97706)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            message['warning'],
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              color: const Color(0xFF9A3412),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                if (isDraft && message['title'] != null && message['content'] != null) ...[
                   const SizedBox(height: 20),
-                  const _DraftCard(),
+                  _DraftCard(
+                    title: message['title'] ?? 'Draft Notice',
+                    body: message['content'] ?? '',
+                  ),
+                ],
+                if (message['sources'] != null && (message['sources'] as List).isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: (message['sources'] as List).map((s) => _SourcesBadge(
+                      file: s['file']?.toString() ?? 'Unknown',
+                      page: s['page']?.toString() ?? '0',
+                      snippet: s['snippet']?.toString(),
+                    )).toList(),
+                  ),
                 ],
               ],
             ),
           ),
           const SizedBox(height: 6),
-          Text('14:23 PM', style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF94A3B8))),
+          Text(
+            'Just now',
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              color: const Color(0xFF94A3B8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SourcesBadge extends StatelessWidget {
+  final String file;
+  final String page;
+  final String? snippet;
+
+  const _SourcesBadge({required this.file, required this.page, this.snippet});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.menu_book_rounded, size: 10, color: Color(0xFF64748B)),
+          const SizedBox(width: 4),
+          Flexible(
+            child: Text(
+              '$file ${page != "0" ? "(P. $page)" : ""}',
+              style: GoogleFonts.outfit(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFF64748B),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (snippet != null) ...[
+            const SizedBox(width: 4),
+            Tooltip(
+              message: snippet!,
+              preferBelow: false,
+              child: const Icon(Icons.info_outline_rounded, size: 12, color: Color(0xFF94A3B8)),
+            ),
+          ],
         ],
       ),
     );
@@ -360,7 +594,10 @@ class _ConciergeBubble extends StatelessWidget {
 }
 
 class _DraftCard extends StatelessWidget {
-  const _DraftCard();
+  final String title;
+  final String body;
+
+  const _DraftCard({required this.title, required this.body});
 
   @override
   Widget build(BuildContext context) {
@@ -368,7 +605,7 @@ class _DraftCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+        border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
       ),
       child: Column(
         children: [
@@ -377,8 +614,19 @@ class _DraftCard extends StatelessWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('OFFICIAL DRAFT', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w700, color: const Color(0xFF64748B))),
-                const Icon(Icons.description_rounded, size: 14, color: Color(0xFF64748B)),
+                Text(
+                  'OFFICIAL DRAFT',
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF64748B),
+                  ),
+                ),
+                const Icon(
+                  Icons.description_rounded,
+                  size: 14,
+                  color: Color(0xFF64748B),
+                ),
               ],
             ),
           ),
@@ -388,11 +636,23 @@ class _DraftCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('IMPORTANT: North Gate Maintenance', style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B))),
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
                 const SizedBox(height: 12),
                 Text(
-                  'Dear Residents, please be advised that the North Gate will be undergoing essential scheduled maintenance on Thursday, Oct 24th, from 10:00 AM to 4:00 PM. Access will be redirected through the East Entrance...',
-                  style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B), height: 1.6, fontStyle: FontStyle.italic),
+                  body,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    color: const Color(0xFF64748B),
+                    height: 1.6,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
                 const SizedBox(height: 24),
                 Row(
@@ -407,7 +667,9 @@ class _DraftCard extends StatelessWidget {
                           foregroundColor: Colors.white,
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -422,7 +684,9 @@ class _DraftCard extends StatelessWidget {
                           foregroundColor: const Color(0xFF334155),
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 12),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
                       ),
                     ),
@@ -442,12 +706,18 @@ class _FloatingInputConsole extends StatelessWidget {
   final FocusNode focusNode;
   final bool isFocused;
   final VoidCallback onSend;
+  final VoidCallback onPickImage;
+  final VoidCallback onRemoveImage;
+  final String? imagePath;
 
   const _FloatingInputConsole({
     required this.controller,
     required this.focusNode,
     required this.isFocused,
     required this.onSend,
+    required this.onPickImage,
+    required this.onRemoveImage,
+    this.imagePath,
   });
 
   @override
@@ -457,18 +727,59 @@ class _FloatingInputConsole extends StatelessWidget {
       left: 0,
       right: 0,
       child: Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 115), 
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Colors.white.withOpacity(0), Colors.white.withOpacity(1.0)],
+            colors: [
+              Colors.white.withValues(alpha: 0),
+              Colors.white.withValues(alpha: 1.0),
+            ],
             stops: const [0.0, 0.4],
           ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (imagePath != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Stack(
+                    children: [
+                      Container(
+                        width: 100,
+                        height: 100,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          image: DecorationImage(
+                            image: FileImage(File(imagePath!)),
+                            fit: BoxFit.cover,
+                          ),
+                          border: Border.all(color: kPrimaryGreen, width: 2),
+                        ),
+                      ),
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: onRemoveImage,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close, size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ).animate().fade().scale(),
+              ),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
@@ -483,23 +794,30 @@ class _FloatingInputConsole extends StatelessWidget {
             Row(
               children: [
                 // Animated Standalone Plus Button
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeOutCubic,
-                  width: isFocused ? 44 : 0,
-                  height: 44,
-                  margin: EdgeInsets.only(right: isFocused ? 12 : 0),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF1F5F9),
-                    shape: BoxShape.circle,
-                    border: Border.all(color: kSlateBorder.withOpacity(0.5)),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: AnimatedOpacity(
-                    duration: const Duration(milliseconds: 200),
-                    opacity: isFocused ? 1.0 : 0.0,
-                    child: Center(
-                      child: Icon(Icons.add_rounded, color: kPrimaryGreen, size: 24),
+                GestureDetector(
+                  onTap: onPickImage,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeOutCubic,
+                    width: isFocused ? 44 : 0,
+                    height: 44,
+                    margin: EdgeInsets.only(right: isFocused ? 12 : 0),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: isFocused ? 1.0 : 0.0,
+                      child: Center(
+                        child: Icon(
+                          Icons.add_photo_alternate_rounded,
+                          color: kPrimaryGreen,
+                          size: 24,
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -513,10 +831,10 @@ class _FloatingInputConsole extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: kSlateBorder.withOpacity(0.6)),
+                      border: Border.all(color: kSlateBorder.withValues(alpha: 0.6)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
+                          color: Colors.black.withValues(alpha: 0.06),
                           blurRadius: 15,
                           offset: const Offset(0, 4),
                         ),
@@ -526,22 +844,35 @@ class _FloatingInputConsole extends StatelessWidget {
                       children: [
                         // Plus icon inside when NOT focused
                         if (!isFocused) ...[
-                          const SizedBox(width: 8),
-                          Icon(Icons.add_rounded, color: const Color(0xFF64748B), size: 22),
-                          const SizedBox(width: 8),
+                          const SizedBox(width: 4),
+                          IconButton(
+                            onPressed: onPickImage,
+                            icon: const Icon(Icons.add_photo_alternate_outlined),
+                            color: const Color(0xFF64748B),
+                            iconSize: 22,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                          ),
+                          const SizedBox(width: 4),
                         ] else ...[
                           const SizedBox(width: 12),
                         ],
-                        
+
                         Expanded(
                           child: TextField(
                             controller: controller,
                             focusNode: focusNode,
                             onSubmitted: (_) => onSend(),
-                            style: GoogleFonts.outfit(fontSize: 15, color: const Color(0xFF1E293B)),
+                            style: GoogleFonts.outfit(
+                              fontSize: 15,
+                              color: const Color(0xFF1E293B),
+                            ),
                             decoration: InputDecoration(
-                              hintText: 'Ask ChatGPT', // ChatGPT style hint
-                              hintStyle: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 15),
+                              hintText: 'Ask Sero something...', 
+                              hintStyle: GoogleFonts.outfit(
+                                color: const Color(0xFF94A3B8),
+                                fontSize: 15,
+                              ),
                               border: InputBorder.none,
                               enabledBorder: InputBorder.none,
                               focusedBorder: InputBorder.none,
@@ -550,11 +881,15 @@ class _FloatingInputConsole extends StatelessWidget {
                             ),
                           ),
                         ),
-                        
+
                         // Icon Group on Right
-                        const Icon(Icons.mic_none_rounded, color: Color(0xFF64748B), size: 22),
+                        const Icon(
+                          Icons.mic_none_outlined,
+                          color: Color(0xFF64748B),
+                          size: 22,
+                        ),
                         const SizedBox(width: 8),
-                        
+
                         // Waveform FAB / Send Button
                         GestureDetector(
                           onTap: onSend,
@@ -563,12 +898,16 @@ class _FloatingInputConsole extends StatelessWidget {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: isFocused ? kPrimaryGreen : const Color(0xFFF1F5F9),
+                              color: isFocused
+                                  ? kPrimaryGreen
+                                  : const Color(0xFFF1F5F9),
                               shape: BoxShape.circle,
                             ),
                             child: Icon(
-                              isFocused ? Icons.arrow_upward_rounded : Icons.graphic_eq_rounded,
-                              color: isFocused ? Colors.white : const Color(0xFF64748B),
+                              Icons.arrow_upward_rounded,
+                              color: isFocused
+                                  ? Colors.white
+                                  : const Color(0xFF64748B),
                               size: 18,
                             ),
                           ),
@@ -587,7 +926,6 @@ class _FloatingInputConsole extends StatelessWidget {
   }
 }
 
-
 class _SuggestionChip extends StatelessWidget {
   final String label;
   const _SuggestionChip({required this.label});
@@ -604,7 +942,11 @@ class _SuggestionChip extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w600, color: const Color(0xFF64748B)),
+        style: GoogleFonts.outfit(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF64748B),
+        ),
       ),
     );
   }
@@ -619,9 +961,14 @@ class _TypingIndicator extends StatelessWidget {
       children: [
         const Icon(Icons.smart_toy_rounded, size: 14, color: Color(0xFF94A3B8)),
         const SizedBox(width: 8),
-        Text('Typing...', style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF94A3B8))),
+        Text(
+          'Typing...',
+          style: GoogleFonts.outfit(
+            fontSize: 11,
+            color: const Color(0xFF94A3B8),
+          ),
+        ),
       ],
     ).animate(onPlay: (c) => c.repeat()).shimmer(duration: 1200.ms);
   }
 }
-

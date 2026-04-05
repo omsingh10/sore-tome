@@ -147,7 +147,7 @@ class _LoadingDotsState extends State<_LoadingDots>
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: Colors.white.withOpacity(opacity.clamp(0.2, 1.0)),
+                color: Colors.white.withValues(alpha: opacity.clamp(0.2, 1.0)),
                 shape: BoxShape.circle,
               ),
             );

@@ -92,7 +92,7 @@ class AdminMainHome extends ConsumerWidget {
                           borderRadius: BorderRadius.circular(28),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.04),
+                              color: Colors.black.withValues(alpha: 0.04),
                               blurRadius: 24,
                               offset: const Offset(0, 8),
                             ),
@@ -254,7 +254,7 @@ class AdminMainHome extends ConsumerWidget {
                     Text(
                       "PENDING APPROVALS",
                       style: GoogleFonts.outfit(
-                        color: const Color(0xFF991B1B).withOpacity(0.6),
+                        color: const Color(0xFF991B1B).withValues(alpha: 0.6),
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 1.2,
@@ -289,7 +289,7 @@ class AdminMainHome extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(28),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.04),
+                      color: Colors.black.withValues(alpha: 0.04),
                       blurRadius: 24,
                       offset: const Offset(0, 8),
                     ),
@@ -377,7 +377,7 @@ class AdminMainHome extends ConsumerWidget {
                       Text(
                         "COLLECTION TOTAL",
                         style: GoogleFonts.outfit(
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 1.2,
@@ -397,7 +397,7 @@ class AdminMainHome extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(4),
                         child: LinearProgressIndicator(
                           value: 0.75,
-                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
                           valueColor: const AlwaysStoppedAnimation<Color>(
                             Colors.white,
                           ),
@@ -411,7 +411,7 @@ class AdminMainHome extends ConsumerWidget {
                           Text(
                             "TARGET: \$200K",
                             style: GoogleFonts.outfit(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.white.withValues(alpha: 0.8),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -419,7 +419,7 @@ class AdminMainHome extends ConsumerWidget {
                           Text(
                             "75% COLLECTED",
                             style: GoogleFonts.outfit(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.white.withValues(alpha: 0.8),
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
@@ -471,7 +471,7 @@ class _PendingItemTile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(

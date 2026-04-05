@@ -1,9 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../app/theme.dart';
 import '../../models/fund.dart';
 import '../../services/firestore_service.dart';
+import '../../services/api_service.dart';
 import '../../widgets/brand_logo.dart';
 
 class FundsScreen extends StatefulWidget {
@@ -34,6 +37,112 @@ class _FundsScreenState extends State<FundsScreen> {
       _transactions = tx;
       _loading = false;
     });
+  }
+
+  Future<void> _smartScan() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+    
+    if (image != null) {
+      // 1. Show Loading
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        isDismissible: false,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: kPrimaryGreen),
+              const SizedBox(height: 24),
+              Text('Analyzing Receipt...', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Text('Sero is extracting financial data', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+
+      try {
+        // 2. Extract Data
+        final bytes = await image.readAsBytes();
+        final base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
+        
+        final res = await ApiService.post('/ai/extract-receipt', {
+          'base64Image': base64Image,
+        });
+
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading
+
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          _showExtractionResult(data);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Extraction failed: ${res.body}')),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showExtractionResult(Map<String, dynamic> data) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+          top: 24, left: 24, right: 24,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: kPrimaryGreen, size: 20),
+                const SizedBox(width: 8),
+                Text('Smart Extraction Result', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700)),
+              ],
+            ),
+            const SizedBox(height: 24),
+            _ResultField(label: 'Vendor', value: data['vendor']?.toString() ?? 'Unknown'),
+            _ResultField(label: 'Date', value: data['date']?.toString() ?? 'N/A'),
+            _ResultField(label: 'Amount', value: '₹${data['amount']?.toString() ?? '0.00'}', isHero: true),
+            _ResultField(label: 'Category', value: data['category']?.toString() ?? 'General'),
+            const SizedBox(height: 32),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Expense logged successfully!')),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: kPrimaryGreen,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              child: Text('Confirm & Save Expense', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, color: Colors.white)),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -105,7 +214,10 @@ class _FundsScreenState extends State<FundsScreen> {
 
             // 6. Recent Disbursements Table
             SliverToBoxAdapter(
-              child: _DisbursementsSection(transactions: _transactions),
+              child: _DisbursementsSection(
+                transactions: _transactions,
+                onSmartScan: _smartScan,
+              ),
             ),
 
             // Bottom Spacing for Floating Navbar
@@ -243,7 +355,7 @@ class _FinancialCard extends StatelessWidget {
         border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.02),
+            color: Colors.black.withValues(alpha: 0.02),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -380,7 +492,7 @@ class _CashflowChart extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 4,
                           ),
                         ],
@@ -542,7 +654,8 @@ class _OverdueItem extends StatelessWidget {
 
 class _DisbursementsSection extends StatelessWidget {
   final List<FundTransaction> transactions;
-  const _DisbursementsSection({required this.transactions});
+  final VoidCallback onSmartScan;
+  const _DisbursementsSection({required this.transactions, required this.onSmartScan});
 
   @override
   Widget build(BuildContext context) {
@@ -572,6 +685,27 @@ class _DisbursementsSection extends StatelessWidget {
                   ),
                 ],
               ),
+              GestureDetector(
+                onTap: onSmartScan,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE2E8F0),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.auto_awesome, color: kPrimaryGreen, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Smart\nScan',
+                        style: GoogleFonts.outfit(color: kPrimaryGreen, fontSize: 12, fontWeight: FontWeight.w600, height: 1.1),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
@@ -649,6 +783,36 @@ class _DisbursementRow extends StatelessWidget {
           ),
           Expanded(
             child: Text(date, textAlign: TextAlign.right, style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B), fontWeight: FontWeight.w500)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResultField extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isHero;
+
+  const _ResultField({required this.label, required this.value, this.isHero = false});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label.toUpperCase(), style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 1.1)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: GoogleFonts.outfit(
+              fontSize: isHero ? 24 : 15,
+              fontWeight: isHero ? FontWeight.w700 : FontWeight.w600,
+              color: isHero ? const Color(0xFF1E3A8A) : const Color(0xFF334155),
+            ),
           ),
         ],
       ),

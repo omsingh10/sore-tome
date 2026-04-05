@@ -111,12 +111,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.location_on, color: Colors.white.withOpacity(0.7), size: 12),
+                  Icon(Icons.location_on, color: Colors.white.withValues(alpha: 0.7), size: 12),
                   const SizedBox(width: 4),
                   Text(
                     'Flat ${user?.flatNumber ?? ""}',
                     style: GoogleFonts.outfit(
-                      color: Colors.white.withOpacity(0.8),
+                      color: Colors.white.withValues(alpha: 0.8),
                       fontSize: 13,
                       fontWeight: FontWeight.w400,
                     ),
@@ -127,9 +127,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
+              color: Colors.white.withValues(alpha: 0.1),
               shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.2)),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
             ),
             child: IconButton(
               icon: const Icon(Icons.person_outline, color: Colors.white),
@@ -201,10 +201,10 @@ class _StatCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: kSlateBorder.withOpacity(0.5)),
+        border: Border.all(color: kSlateBorder.withValues(alpha: 0.5)),
         boxShadow: [
           BoxShadow(
-            color: kPrimaryBlue.withOpacity(0.04),
+            color: kPrimaryBlue.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),

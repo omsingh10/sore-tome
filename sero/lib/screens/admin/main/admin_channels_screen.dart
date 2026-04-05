@@ -204,7 +204,7 @@ class _ChannelPremiumCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 8),
           ),
@@ -217,7 +217,7 @@ class _ChannelPremiumCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: color.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(icon, color: color, size: 22),
@@ -413,7 +413,7 @@ class _ModeratorsCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFFF1F5F9).withOpacity(0.5),
+        color: const Color(0xFFF1F5F9).withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(28),
       ),
       child: Column(
@@ -554,7 +554,7 @@ class _NewChannelCTA extends StatelessWidget {
             "Create a dedicated space for specific\ncommittee or resident groups.",
             textAlign: TextAlign.center,
             style: GoogleFonts.outfit(
-              color: const Color(0xFF1E40AF).withOpacity(0.7),
+              color: const Color(0xFF1E40AF).withValues(alpha: 0.7),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
