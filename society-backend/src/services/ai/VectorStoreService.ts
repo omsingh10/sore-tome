@@ -51,53 +51,60 @@ export class VectorStoreService {
    * Uses Reciprocal Rank Fusion (RRF) for result merging.
    * STRICTLY filtered by society_id for multi-tenancy.
    */
-  public async hybridSearch(query: string, society_id: string, limit: number = 5) {
+  public async hybridSearch(query: string, society_id: string, options: { requestId: string; userId: string }, limit: number = 5) {
     const startTime = Date.now();
-    const queryEmbedding = await this.embeddings.embedQuery(query);
-    const vectorString = `[${queryEmbedding.join(",")}]`;
-
-    // Reciprocal Rank Fusion (RRF) SQL Query
-    // Ensures Keyword matches are prioritized for specific terms (like rule numbers)
-    const sql = `
-      WITH fulltext_search AS (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts_content, plainto_tsquery('english', $1)) DESC) as rank
-          FROM document_chunks
-          WHERE fts_content @@ plainto_tsquery('english', $1)
-          AND (metadata->>'society_id')::text = $3
-          LIMIT 20
-      ),
-      vector_search AS (
-          SELECT id, ROW_NUMBER() OVER (ORDER BY vector <=> $2) as rank
-          FROM document_chunks
-          WHERE (metadata->>'society_id')::text = $3
-          LIMIT 20
-      )
-      SELECT dc.id, dc.content, dc.metadata, SUM(1.0 / (60 + COALESCE(fts.rank, 1000) + COALESCE(vec.rank, 1000))) as rrf_score
-      FROM document_chunks dc
-      LEFT JOIN fulltext_search fts ON dc.id = fts.id
-      LEFT JOIN vector_search vec ON dc.id = vec.id
-      WHERE fts.id IS NOT NULL OR vec.id IS NOT NULL
-      GROUP BY dc.id, dc.content, dc.metadata
-      ORDER BY rrf_score DESC
-      LIMIT $4;
-    `;
-
+    
     try {
+      const queryEmbedding = await this.embeddings.embedQuery(query);
+      const vectorString = `[${queryEmbedding.join(",")}]`;
+
+      // Reciprocal Rank Fusion (RRF) SQL Query
+      const sql = `
+        WITH fulltext_search AS (
+            SELECT id, ROW_NUMBER() OVER (ORDER BY ts_rank_cd(fts_content, plainto_tsquery('english', $1)) DESC) as rank
+            FROM document_chunks
+            WHERE fts_content @@ plainto_tsquery('english', $1)
+            AND (metadata->>'society_id')::text = $3
+            LIMIT 20
+        ),
+        vector_search AS (
+            SELECT id, ROW_NUMBER() OVER (ORDER BY vector <=> $2) as rank
+            FROM document_chunks
+            WHERE (metadata->>'society_id')::text = $3
+            LIMIT 20
+        )
+        SELECT dc.id, dc.content, dc.metadata, SUM(1.0 / (60 + COALESCE(fts.rank, 1000) + COALESCE(vec.rank, 1000))) as rrf_score
+        FROM document_chunks dc
+        LEFT JOIN fulltext_search fts ON dc.id = fts.id
+        LEFT JOIN vector_search vec ON dc.id = vec.id
+        WHERE fts.id IS NOT NULL OR vec.id IS NOT NULL
+        GROUP BY dc.id, dc.content, dc.metadata
+        ORDER BY rrf_score DESC
+        LIMIT $4;
+      `;
+
       const result = await this.pool.query(sql, [query, vectorString, society_id, limit]);
       
       const duration = Date.now() - startTime;
       logger.info({ 
-        society_id, 
-        duration_ms: duration, 
-        results_count: result.rows.length 
-      }, "Hybrid Search Completed");
+        ...options,
+        societyId: society_id, 
+        latency_ms: duration, 
+        results_counts: result.rows.length,
+        status: "success"
+      }, "AI Hybrid Search Request Successful");
 
       return result.rows.map(row => new Document({
         pageContent: row.content,
         metadata: row.metadata
       }));
     } catch (error: any) {
-      logger.error({ error: error.message, society_id }, "Hybrid Search Failed");
+      logger.error({ 
+        ...options,
+        societyId: society_id, 
+        error: error.message, 
+        status: "failed" 
+      }, "AI Hybrid Search Request Failed");
       throw error;
     }
   }
@@ -105,7 +112,7 @@ export class VectorStoreService {
   /**
    * Legacy method maintained for compatibility but now routed to hybrid search.
    */
-  public async search(query: string, society_id: string, limit: number = 5) {
-    return this.hybridSearch(query, society_id, limit);
+  public async search(query: string, society_id: string, options: { requestId: string; userId: string }, limit: number = 5) {
+    return this.hybridSearch(query, society_id, options, limit);
   }
 }
