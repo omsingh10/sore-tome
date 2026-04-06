@@ -145,4 +145,15 @@ export class ProviderService {
 
     return resilientModel;
   }
+
+  /**
+   * Specialized Vision Model for V3.9 Adaptive Routing.
+   */
+  public async getVisionModel(): Promise<ChatGroq> {
+    return new ChatGroq({ 
+      apiKey: process.env.GROQ_API_KEY, 
+      model: "llama-3.2-11b-vision-preview", 
+      temperature: 0 
+    });
+  }
 }

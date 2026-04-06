@@ -46,10 +46,10 @@ router.get("/transactions", authMiddleware, async (req, res) => {
 });
 
 // POST /funds/transactions — admin only: add a transaction
-// Body: { title, amount, type }  type = "credit" | "debit"
+// Body: { title, amount, type, category, note, transactionId }
 router.post("/transactions", authMiddleware, canManageFunds, async (req, res) => {
   try {
-    const { title, amount, type, note } = req.body;
+    const { title, amount, type, note, category, transactionId } = req.body;
     if (!title || !amount || !type)
       return res.status(400).json({ error: "title, amount, and type are required" });
     if (!["credit", "debit"].includes(type))
@@ -62,7 +62,9 @@ router.post("/transactions", authMiddleware, canManageFunds, async (req, res) =>
       title,
       amount: Number(amount),
       type,
+      category: category || "Other", // V3.9: Add category
       note: note || "",
+      transactionId: transactionId || null, // V3.9: Track AI/External IDs
       addedBy: req.user.uid,
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });

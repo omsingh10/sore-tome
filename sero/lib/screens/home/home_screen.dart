@@ -6,6 +6,9 @@ import '../../models/issue.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/notice_card.dart';
 import '../../widgets/issue_card.dart';
+import '../../services/ai_service.dart';
+import '../ai_chat/ai_chat_screen.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/auth_provider.dart';
@@ -20,8 +23,10 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _service = FirestoreService();
+  final _aiService = AiService();
   List<Notice> _notices = [];
   List<Issue> _myIssues = [];
+  Map<String, dynamic>? _aiDigest;
   bool _loading = true;
 
   @override
@@ -31,12 +36,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   Future<void> _load() async {
-    final notices = await _service.getNotices();
-    final issues = await _service.getIssues();
+    final results = await Future.wait([
+      _service.getNotices(),
+      _service.getIssues(),
+      _aiService.getDigest(),
+    ]);
+
     if (!mounted) return;
     setState(() {
-      _notices = notices;
-      _myIssues = issues.where((i) => i.postedBy == 'Rahul').toList();
+      _notices = results[0] as List<Notice>;
+      _myIssues = (results[1] as List<Issue>).where((i) => i.postedBy == 'Rahul').toList();
+      _aiDigest = results[2] as Map<String, dynamic>?;
       _loading = false;
     });
   }
@@ -59,6 +69,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         const SizedBox(height: 6),
                         _statsRow(),
                         const SizedBox(height: 12),
+                        if (_aiDigest != null) ...[
+                          _buildAIDigest(),
+                          const SizedBox(height: 12),
+                        ],
                         _sectionLabel('Latest notices'),
                         const SizedBox(height: 6),
                         ..._notices.map((n) => Padding(
@@ -179,6 +193,110 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Widget _buildAIDigest() {
+    final summary = _aiDigest?['summary'] ?? "Ready to analyze your society.";
+    final insights = _aiDigest?['insights'] as List? ?? [];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            color: const Color(0xFFF1F5F9),
+            child: Row(
+              children: [
+                const Icon(Icons.auto_awesome, size: 16, color: kPrimaryGreen),
+                const SizedBox(width: 8),
+                Text(
+                  'SERO AI DIGEST',
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: kPrimaryGreen,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const Spacer(),
+                const Icon(Icons.more_horiz, size: 16, color: Colors.grey),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  summary,
+                  style: GoogleFonts.outfit(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFF1E293B),
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...insights.map((insight) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 4,
+                        height: 4,
+                        decoration: const BoxDecoration(color: kPrimaryGreen, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          insight,
+                          style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B)),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+                const SizedBox(height: 12),
+                const Divider(height: 1, color: Color(0xFFE2E8F0)),
+                const SizedBox(height: 16),
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (_) => const AiChatScreen(
+                      initialMessage: "Explain my society digest and suggest improvements",
+                      initialContext: {"screen": "home_digest"},
+                    ))
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        'DIVE DEEPER WITH SERO',
+                        style: GoogleFonts.outfit(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: kPrimaryGreen,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      const Icon(Icons.arrow_forward_rounded, size: 14, color: kPrimaryGreen),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(duration: 800.ms).slideY(begin: 0.1);
   }
 }
 

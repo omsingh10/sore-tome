@@ -19,57 +19,70 @@ The issue count has increased from 38 to 56, primarily due to the addition of mo
 - **Hardcoded Colors**: Still persisting in newer screens (Auth related).
 - **Text Styling**: Some `Text` widgets in the "Pending Approval" UI require `GoogleFonts.outfit` for consistency.
 
-## 🚀 Resolved Issues (Backend AI)
+---
 
-### 1. Synchronous Thread Blocking
-- **Issue**: Heavy AI tasks (PDF ingestion) were blocking the Express event loop.
-- **Solution**: Implemented `AIQueueService` using **BullMQ + Redis**. Jobs are now processed by background workers with 5x concurrency.
-- **Status**: ✅ Fixed
+## 🚀 Resolved Issues & Technical Debt (Refactoring & AI)
 
-### 2. Output Formatting Instability
-- **Issue**: LLMs occasionally returned malformed or "Markdown-wrapped" JSON, causing `JSON.parse` to crash.
-- **Solution**: Added `safeParseAIResponse` with Regex sanitization and **Zod** schema validation in extraction routes.
-- **Status**: ✅ Fixed
+Since the last audit, we have successfully resolved several critical architectural bottlenecks:
 
-### 3. Slow OCR / Attachment Timeouts
-- **Issue**: Large image attachments caused chat requests to hang or time out at the Load Balancer level.
-- **Solution**: Implemented a **10-second timeout** using `Promise.race` in `AIChatService.ts`. The system now continues with a "best effort" text-only response if OCR fails.
-- **Status**: ✅ Fixed
+### 1. Monolithic Screen Congestion
+- **Issue**: Six core screens (`AI Chat`, `Funds`, `Admin Users`, `Admin Channels`, `Admin Home`, `Issues`) were 500-1,800 lines long, making maintenance high-risk.
+- **Solution**: Executed a **Massive Modularization Overhaul**, extracting 80-90% of UI logic into thematic `widgets/` directories.
+- **Status**: ✅ Completed. Core screens are now <200 lines each.
 
-### 4. SSE Streaming Reliability
-- **Issue**: Slow LLM providers caused Server-Sent Events (SSE) to hang indefinitely.
-- **Solution**: Added a **7-second watchdog timer** that sends a "System busy, retrying..." message and closes the stream if no chunk is received.
-- **Status**: ✅ Fixed
+### 2. Lack of Ingestion Visibility (UX)
+- **Issue**: Admins could trigger document ingestion but had no way to track progress or verify if a 50-page PDF was indexed.
+- **Solution**: Built a real-time **AI Ingestion Console** in the Admin dashboard synced to a Firestore `ai_jobs` stream fueled by **BullMQ**.
+- **Status**: ✅ Completed. Live progress bars and status chips (Indexed/Failed) are operational.
 
-## 🛠️ Current Backend AI Infrastructure Debt
+### 3. FilePicker (v11) API Breakage
+- **Issue**: The `.platform` getter was removed in a package update, causing a complete build failure.
+- **Solution**: Migrated all instances (e.g., `AdminAIScreen:41`) to the new static `FilePicker.pickFiles()` API.
+- **Status**: ✅ Fixed.
 
-The backend's Resilient AI Gateway is currently operational but requires the following structural fixes:
+### 4. Unsafe Async BuildContext Usage
+- **Issue**: Multiple `use_build_context_synchronously` warnings were present in the AI Chat and Funds modules.
+- **Solution**: Hardened all async gaps with `if (!context.mounted) return;` checks to prevent potential crashes on high-latency API responses.
+- **Status**: ✅ Fixed.
 
-### 1. Vector Metadata Isolation Safety (Critical)
-- **Problem**: Potential for cross-tenant data leakage if the chunking pipeline drops the `society_id`.
-- **Recommendation**: Enforce rigid, mandatory `society_id` assertions at the Document Metadata level in `VectorStoreService`.
+### 5. Deprecated `DropdownButtonFormField` Properties
+- **Issue**: Use of the deprecated `value` property was causing framework-level linting warnings.
+- **Solution**: Migrated all core form fields to use `initialValue` as per Flutter 3.33+ standards.
+- **Status**: ✅ Fixed.
 
-### 2. Lack of Background Task Visibility (UX)
-- **Problem**: Societies can trigger ingestion via `/ai/ingest`, but there is no UI/API to check the status of their specific background job.
-- **Recommendation**: Create a `/ai/tasks/status/:jobId` endpoint and a Flutter "Task Progress" widget.
+### 6. Android Build Cache/Root Conflict
+- **Issue**: "this and base files have different roots" Gradle error due to E: vs C: drive mismatch.
+- **Solution**: Orchestrated systematic `flutter clean` and cache wipe for the **E:** drive mount.
+- **Status**: ✅ Resolved.
 
-### 3. LLM Auto-Repair Loop
-- **Problem**: When `safeParseAIResponse` fails, we currently fall back to plain text.
-- **Recommendation**: Implement a recursive "Refinement Loop" where the AI is given the error and asked to fix the JSON structure once before failing.
+---
 
-### 4. Handwriting & Table OCR Accuracy
-- **Problem**: Tesseract (WASM-based) struggles with handwritten documents or complex financial tables.
-- **Recommendation**: Investigate a "Hybrid OCR" strategy: Tesseract for standard text, and **GPT-4o-Vision** (as a fallback) for complex structural extraction.
+## 🏗️ Remaining Infrastructure Debt (Updated)
 
-## ✅ Priority Fixes Needed
+While the Core UX is now stable and modular, the following technical goals remain:
+
+### 1. Vector Metadata Assertion (Hardening)
+- **Problem**: We need "Double-Lock" security to ensure `society_id` is never dropped during the pgvector embedding pipeline.
+- **Recommendation**: Implement a formal **Guardrail Middleware** in `VectorStoreService` that throws a 500 if a chunk is missing its tenant tag.
+
+### 2. Standardized `withValues` Migration
+- **Problem**: 50+ instances of the deprecated `.withOpacity()` still exist in the auth and profile screens.
+- **Priority**: Medium.
+
+### 3. Per-Society Usage Dashboard
+- **Problem**: Administrators currently lack a way to see their AI token consumption vs. their billing tier.
+- **Priority**: High (Next Phase).
+
+---
+
+## ✅ Updated Priority Fixes Roadmap
 
 ### Frontend
-- [ ] Migrate all `withOpacity` to `withValues` (High Priority).
-- [ ] Implement `mounted` checks for all async service calls.
-- [ ] Extract remaining hardcoded branding colors to `theme.dart`.
+- [ ] Migrate remaining 50+ `withOpacity` to `withValues`.
+- [ ] Implement a "Retry" button for failed AI Ingestion tasks in the Admin Console.
+- [ ] Build the **Society AI Analytics Header** (Tokens used, Docs indexed).
 
 ### Backend
-- [ ] Hardcode metadata assertions for `society_id` in pgvector pipelines.
-- [ ] Build `/ai/tasks/status` endpoint for background job tracking.
-- [ ] Implement "Hybrid OCR" for complex document extraction.
-- [ ] Build a per-society AI token usage/quota dashboard.
+- [ ] Hardcode strict `society_id` assertions in the ingestion pipeline.
+- [ ] Build the `/ai/usage/stats` endpoint to feed the new Admin header.
+- [ ] Transition Tesseract.js (WASM) to a dedicated server-side microservice for faster batch processing.

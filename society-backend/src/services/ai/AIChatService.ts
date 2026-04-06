@@ -8,6 +8,7 @@ import { AIGuardrailsService } from "./AIGuardrailsService";
 import { ParserService } from "./ParserService";
 import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
 import { HumanMessage, AIMessage, SystemMessage } from "@langchain/core/messages";
+import { AIToolService, ToolAction } from "./AIToolService";
 
 export class AIChatService {
   private static instance: AIChatService;
@@ -40,18 +41,31 @@ export class AIChatService {
    */
   private safeParseAIResponse(text: string): any {
     try {
+      // 1. Try standard JSON extraction
       const jsonMatch = text.match(/\{[\s\S]*\}/);
-      const cleanText = jsonMatch ? jsonMatch[0] : text;
-      const parsed = JSON.parse(cleanText);
+      if (!jsonMatch) return null;
 
-      if (parsed && parsed.type === "draft" && parsed.title && parsed.content) {
-        return parsed;
+      let cleanText = jsonMatch[0];
+      
+      // 2. Fix common LLM JSON errors: Unescaped newlines in string values
+      // This regex looks for newlines that are NOT preceded by a backslash inside double quotes
+      // BUT for simplicity, we first try standard parse, then refined cleaning.
+      try {
+        return JSON.parse(cleanText);
+      } catch {
+        // Attempt to escape newlines inside what look like string values
+        cleanText = cleanText.replace(/:\s*"([\s\S]*?)"/g, (match, p1) => {
+          const escaped = p1.replace(/\n/g, "\\n").replace(/\r/g, "\\r");
+          return `: "${escaped}"`;
+        });
+        return JSON.parse(cleanText);
       }
-      if (parsed && parsed.type === "text" && parsed.reply) {
-        return parsed;
+    } catch (e) {
+      // 3. Last resort: Regex extraction of 'reply' if it exists
+      const replyMatch = text.match(/"reply":\s*"([\s\S]*?)"/);
+      if (replyMatch && replyMatch[1]) {
+        return { type: "text", reply: replyMatch[1].replace(/\\n/g, "\n") };
       }
-      return null;
-    } catch {
       return null;
     }
   }
@@ -63,7 +77,8 @@ export class AIChatService {
     userId: string, 
     societyId: string, 
     userMessage: string,
-    base64Image?: string
+    base64Image?: string,
+    contextData?: any
   ): Promise<any> {
     const requestId = `chat_json_${Date.now()}`;
     const context = { requestId, userId, societyId };
@@ -108,11 +123,31 @@ export class AIChatService {
       const parsed = this.safeParseAIResponse(aiText);
       const responseType = parsed ? parsed.type : "text";
 
+      // V3.9: Propose Action if requested by AI
+      if (parsed && parsed.type === "action" && parsed.tool) {
+        try {
+          const toolService = AIToolService.getInstance();
+          const proposal = await toolService.proposeAction(userId, societyId, parsed.tool as ToolAction, parsed.params || {});
+          parsed.actionId = proposal.actionId;
+          parsed.expires_at = proposal.expires_at;
+        } catch (err: any) {
+          logger.warn({ ...context, error: err.message }, "Action proposal failed");
+          parsed.type = "text";
+          parsed.reply = parsed.reply || "I encountered an error while preparing that action.";
+        }
+      }
+
       const safeOutput = await this.postProcess(userId, societyId, safeInput, aiText, context);
       
       logger.info({ ...context, responseType }, "AI Chat Response Generated");
 
       const result = parsed || { type: "text", reply: safeOutput };
+      
+      // If result was parsed but has JSON-like garbage in reply, clean it
+      if (result.type === "text" && result.reply.startsWith("{\"type\":")) {
+         const reParsed = this.safeParseAIResponse(result.reply);
+         if (reParsed && reParsed.reply) result.reply = reParsed.reply;
+      }
       
       // Add sources if available
       if (sources && sources.length > 0) {
@@ -189,7 +224,8 @@ export class AIChatService {
     societyId: string, 
     safeInput: string, 
     context: any,
-    fileContent: string = ""
+    fileContent: string = "",
+    contextData?: any
   ) {
     const relatedDocs = await this.vectorStore.hybridSearch(safeInput, societyId, context, 3);
     const ragContext = relatedDocs.map(d => d.pageContent).join("\n---\n");
@@ -209,12 +245,15 @@ export class AIChatService {
       Context: ${ragContext}
       
       ${fileContent ? `[ATTACHED FILE CONTEXT]:\n${fileContent}\n` : ""}
+      ${contextData ? `[CURRENT SCREEN CONTEXT]:\n${JSON.stringify(contextData)}\n` : ""}
 
       STRICT FORMATTING RULE:
-      1. If the user asks to draft a notice, rule, announcement, or message:
-         Return ONLY a JSON object: {"type": "draft", "title": "<short title>", "content": "<detailed content>"}
-      2. For all other queries:
-         Return plain text response or JSON: {"type": "text", "reply": "<your response>"}
+      1. If you are drafting a notice, rule, or announcement:
+         Return ONLY a JSON object: {"type": "draft", "title": "Water Shutdown", "content": "Please be advised..."}
+      2. If you are proposing a SYSTEM ACTION (create_notice, log_expense, create_complaint):
+         Return ONLY a JSON object: {"type": "action", "tool": "create_complaint", "params": {"title": "Basement Leak", "description": "Water leaking from ceiling", "priority": "high"}, "reply": "I've drafted a priority complaint for the basement leak. Shall I submit it?"}
+      3. For standard conversation, assistance, or general queries (e.g. 'What are the rules?'):
+         DO NOT use JSON. Return standard, helpful conversational text using markdown.
     `;
 
     const messages = [

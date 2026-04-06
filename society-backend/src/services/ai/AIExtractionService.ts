@@ -107,4 +107,40 @@ export class AIExtractionService {
       throw error;
     }
   }
+
+  /**
+   * V3.9: Auto-maps extracted text to predefined society categories.
+   */
+  public autoMapCategory(input: string): string {
+    const ALLOWED_CATEGORIES = [
+      "Maintenance", "Utilities", "Security", "Repairs", "Landscaping",
+      "Stationery", "Events", "Sinking Fund", "Member Dues", "Other"
+    ];
+    
+    const text = input.toLowerCase();
+
+    if (text.includes("electricity") || text.includes("water") || text.includes("power") || text.includes("utility")) 
+      return "Utilities";
+
+    if (text.includes("repair") || text.includes("fix") || text.includes("plumbing") || text.includes("electrician")) 
+      return "Repairs";
+
+    if (text.includes("security") || text.includes("guard") || text.includes("cctv") || text.includes("watchman")) 
+      return "Security";
+
+    if (text.includes("maintenance") || text.includes("service charge"))
+      return "Maintenance";
+
+    if (text.includes("society fund") || text.includes("sinking"))
+      return "Sinking Fund";
+
+    if (text.includes("member") || text.includes("subscription") || text.includes("dues"))
+      return "Member Dues";
+
+    // Strict validation
+    const mapped = ALLOWED_CATEGORIES.find(c => c.toLowerCase() === text);
+    if (mapped) return mapped;
+
+    return "Other";
+  }
 }
