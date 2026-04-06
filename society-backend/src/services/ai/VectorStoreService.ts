@@ -22,6 +22,32 @@ export class VectorStoreService {
       apiToken: process.env.CLOUDFLARE_API_TOKEN!,
       model: "@cf/baai/bge-small-en-v1.5",
     });
+
+    // V3.9: Initialize Audit Tables
+    this.initializeAuditTable().catch(err => logger.error({ err }, "Failed to initialize AI Audit Table"));
+  }
+
+  private async initializeAuditTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS ai_audit_logs (
+        id SERIAL PRIMARY KEY,
+        action_id UUID DEFAULT gen_random_uuid(),
+        tool_id VARCHAR(100),
+        user_id VARCHAR(255),
+        society_id VARCHAR(255),
+        action VARCHAR(100),
+        params JSONB,
+        status VARCHAR(50), -- Proposed | Pending | Processing | Completed | Failed | Expired
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '10 minutes'
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_ai_audit_society ON ai_audit_logs(society_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_audit_user ON ai_audit_logs(user_id);
+    `;
+    await this.pool.query(sql);
+    logger.info("AI Audit Table Initialized");
   }
 
 

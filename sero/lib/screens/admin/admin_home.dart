@@ -3,15 +3,18 @@ import '../../app/theme.dart';
 import '../../models/issue.dart';
 import '../../services/firestore_service.dart';
 import '../../widgets/issue_card.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/ai_provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-class AdminHome extends StatefulWidget {
+class AdminHome extends ConsumerStatefulWidget {
   const AdminHome({super.key});
 
   @override
-  State<AdminHome> createState() => _AdminHomeState();
+  ConsumerState<AdminHome> createState() => _AdminHomeState();
 }
 
-class _AdminHomeState extends State<AdminHome> {
+class _AdminHomeState extends ConsumerState<AdminHome> {
   final _service = FirestoreService();
   List<Issue> _pendingIssues = [];
   bool _loading = true;
@@ -82,14 +85,76 @@ class _AdminHomeState extends State<AdminHome> {
                             ),
                           ),
                         const SizedBox(height: 12),
-                        _sectionLabel('Society stats'),
-                        const SizedBox(height: 6),
-                        Row(
-                          children: const [
-                            Expanded(child: _AdminStatCard(value: '142', label: 'Registered users')),
-                            SizedBox(width: 8),
-                            Expanded(child: _AdminStatCard(value: '94%', label: 'Dues collected')),
-                          ],
+                        _sectionLabel('Real-time AI Analytics'),
+                        const SizedBox(height: 8),
+                        ref.watch(aiStatsProvider).when(
+                          data: (stats) => Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(child: _AdminStatCard(
+                                    value: stats['complaints']['total'].toString(), 
+                                    label: 'Total Issues',
+                                    icon: Icons.error_outline,
+                                  )),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _AdminStatCard(
+                                    value: stats['complaints']['open'].toString(), 
+                                    label: 'Open Now',
+                                    color: Colors.orange.shade50,
+                                    icon: Icons.pending_actions,
+                                  )),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(child: _AdminStatCard(
+                                    value: stats['ai_actions']['completed']?.toString() ?? '0', 
+                                    label: 'AI Tasks Done',
+                                    icon: Icons.auto_awesome,
+                                  )),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: _AdminStatCard(
+                                    value: stats['notices']['total'].toString(), 
+                                    label: 'Notices Sent',
+                                    icon: Icons.campaign,
+                                  )),
+                                ],
+                              ),
+                            ],
+                          ),
+                          loading: () => const Center(child: LinearProgressIndicator()),
+                          error: (e, s) => Text('Stats unavailable: $e', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                        ),
+                        const SizedBox(height: 16),
+                        _sectionLabel('Financial Insights'),
+                        const SizedBox(height: 8),
+                        ref.watch(financeAnalysisProvider).when(
+                          data: (finance) => Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8FAFC),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE2E8F0)),
+                            ),
+                            child: Column(
+                               crossAxisAlignment: CrossAxisAlignment.start,
+                               children: [
+                                 Text(
+                                   'Top Spending: ${finance['topCategory']}',
+                                   style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: kPrimaryGreen),
+                                 ),
+                                 const SizedBox(height: 4),
+                                 Text(
+                                   'AI detected high frequency in ${finance['topCategory'].toLowerCase()} expenses this month.',
+                                   style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey),
+                                 ),
+                               ],
+                            ),
+                          ),
+                          loading: () => const SizedBox.shrink(),
+                          error: (e, s) => const SizedBox.shrink(),
                         ),
                       ],
                     ),
@@ -189,31 +254,40 @@ class _AdminHomeState extends State<AdminHome> {
 class _AdminStatCard extends StatelessWidget {
   final String value;
   final String label;
-  const _AdminStatCard({required this.value, required this.label});
+  final Color? color;
+  final IconData? icon;
+  const _AdminStatCard({required this.value, required this.label, this.color, this.icon});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F0F0),
-        borderRadius: BorderRadius.circular(10),
+        color: color ?? const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF1A1A1A),
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                value,
+                style: GoogleFonts.outfit(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF0F172A),
+                ),
+              ),
+              if (icon != null) Icon(icon, size: 16, color: const Color(0xFF64748B)),
+            ],
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF8A8A8A)),
+            style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B), fontWeight: FontWeight.w500),
           ),
         ],
       ),
