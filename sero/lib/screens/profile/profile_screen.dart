@@ -23,7 +23,7 @@ class ProfileScreen extends ConsumerWidget {
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundColor: const Color(0xFF2E7D32).withOpacity(0.1),
+            backgroundColor: const Color(0xFF2E7D32).withValues(alpha: 0.1),
             child: const Icon(Icons.person, size: 50, color: Color(0xFF2E7D32)),
           ),
           const SizedBox(height: 20),

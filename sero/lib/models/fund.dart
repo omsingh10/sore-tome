@@ -4,6 +4,9 @@ class FundTransaction {
   final String description;
   final double amount; // positive = credit, negative = debit
   final DateTime date;
+  final String category; // Added for V3.9
+  final String createdBy; // Added for V3.9
+  final String? transactionId; // Added for V3.9 Action IDs
 
   FundTransaction({
     required this.id,
@@ -11,6 +14,9 @@ class FundTransaction {
     required this.description,
     required this.amount,
     required this.date,
+    this.category = 'Other',
+    this.createdBy = '',
+    this.transactionId,
   });
 
   bool get isCredit => amount > 0;
@@ -19,9 +25,12 @@ class FundTransaction {
     return FundTransaction(
       id: map['id'] ?? '',
       title: map['title'] ?? '',
-      description: map['description'] ?? '',
+      description: map['note'] ?? map['description'] ?? '',
       amount: (map['amount'] ?? 0).toDouble(),
-      date: DateTime.tryParse(map['date'] ?? '') ?? DateTime.now(),
+      date: DateTime.tryParse(map['createdAt'] ?? map['date'] ?? '') ?? DateTime.now(),
+      category: map['category'] ?? 'Other',
+      createdBy: map['addedBy'] ?? map['createdBy'] ?? '',
+      transactionId: map['transactionId'],
     );
   }
 
@@ -29,9 +38,13 @@ class FundTransaction {
     return {
       'id': id,
       'title': title,
-      'description': description,
-      'amount': amount,
+      'note': description,
+      'amount': amount.abs(),
+      'type': amount >= 0 ? 'credit' : 'debit',
       'date': date.toIso8601String(),
+      'category': category,
+      'addedBy': createdBy,
+      'transactionId': transactionId,
     };
   }
 }

@@ -1,5 +1,5 @@
 import { PGVectorStore } from "@langchain/community/vectorstores/pgvector";
-import { OpenAIEmbeddings } from "@langchain/openai";
+import { CloudflareEmbeddings } from "./CloudflareEmbeddings";
 import { Pool, PoolConfig } from "pg";
 import { Document } from "@langchain/core/documents";
 import { logger } from "../../shared/Logger";
@@ -10,18 +10,46 @@ dotenv.config();
 export class VectorStoreService {
   private static instance: VectorStoreService;
   private pool: Pool;
-  private embeddings: OpenAIEmbeddings;
+  private embeddings: CloudflareEmbeddings;
 
   private constructor() {
     const config: PoolConfig = {
       connectionString: process.env.DATABASE_URL,
     };
     this.pool = new Pool(config);
-    this.embeddings = new OpenAIEmbeddings({
-      apiKey: process.env.OPENAI_API_KEY,
-      modelName: "text-embedding-3-small",
+    this.embeddings = new CloudflareEmbeddings({
+      accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+      apiToken: process.env.CLOUDFLARE_API_TOKEN!,
+      model: "@cf/baai/bge-small-en-v1.5",
     });
+
+    // V3.9: Initialize Audit Tables
+    this.initializeAuditTable().catch(err => logger.error({ err }, "Failed to initialize AI Audit Table"));
   }
+
+  private async initializeAuditTable() {
+    const sql = `
+      CREATE TABLE IF NOT EXISTS ai_audit_logs (
+        id SERIAL PRIMARY KEY,
+        action_id UUID DEFAULT gen_random_uuid(),
+        tool_id VARCHAR(100),
+        user_id VARCHAR(255),
+        society_id VARCHAR(255),
+        action VARCHAR(100),
+        params JSONB,
+        status VARCHAR(50), -- Proposed | Pending | Processing | Completed | Failed | Expired
+        error_message TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP + INTERVAL '10 minutes'
+      );
+      
+      CREATE INDEX IF NOT EXISTS idx_ai_audit_society ON ai_audit_logs(society_id);
+      CREATE INDEX IF NOT EXISTS idx_ai_audit_user ON ai_audit_logs(user_id);
+    `;
+    await this.pool.query(sql);
+    logger.info("AI Audit Table Initialized");
+  }
+
 
   public static getInstance(): VectorStoreService {
     if (!VectorStoreService.instance) {

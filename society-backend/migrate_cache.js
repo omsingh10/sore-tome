@@ -8,20 +8,21 @@ async function migrate() {
   });
   await client.connect();
   try {
-    console.log("--- Creating Semantic Cache table ---");
+    console.log("--- Refreshing Semantic Cache table (384 dims) ---");
     await client.query(`
+      DROP TABLE IF EXISTS semantic_cache;
       CREATE TABLE IF NOT EXISTS semantic_cache (
         id SERIAL PRIMARY KEY,
         society_id TEXT NOT NULL,
         query TEXT NOT NULL,
         response TEXT NOT NULL,
-        embedding vector(1536),
+        embedding vector(384),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
       CREATE INDEX IF NOT EXISTS idx_semantic_cache_embedding ON semantic_cache USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
       CREATE UNIQUE INDEX IF NOT EXISTS idx_query_society ON semantic_cache(society_id, query);
     `);
-    console.log("✅ Semantic Cache table created successfully.");
+    console.log("✅ Semantic Cache table refreshed successfully.");
   } catch (err) {
     console.error("❌ Error creating table:", err.message);
   } finally {

@@ -20,9 +20,9 @@ class PendingApprovalScreen extends ConsumerWidget {
                 width: 120,
                 height: 120,
                 decoration: BoxDecoration(
-                  color: kPrimaryGreen.withOpacity(0.05),
+                  color: kPrimaryGreen.withValues(alpha: 0.05),
                   shape: BoxShape.circle,
-                  border: Border.all(color: kPrimaryGreen.withOpacity(0.1), width: 2),
+                  border: Border.all(color: kPrimaryGreen.withValues(alpha: 0.1), width: 2),
                 ),
                 child: const Icon(
                   Icons.hourglass_empty_rounded,

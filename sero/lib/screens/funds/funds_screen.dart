@@ -1,10 +1,16 @@
+import 'dart:convert';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../app/theme.dart';
 import '../../models/fund.dart';
 import '../../services/firestore_service.dart';
-import '../../widgets/brand_logo.dart';
+import '../../services/api_service.dart';
+import '../ai_chat/ai_chat_screen.dart';
+
+// Modularized Widgets
+import 'widgets/funds_widgets.dart';
 
 class FundsScreen extends StatefulWidget {
   const FundsScreen({super.key});
@@ -36,6 +42,77 @@ class _FundsScreenState extends State<FundsScreen> {
     });
   }
 
+  Future<void> _smartScan() async {
+    final picker = ImagePicker();
+    final image = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+    
+    if (image != null) {
+      if (!mounted) return;
+      showModalBottomSheet(
+        context: context,
+        isDismissible: false,
+        backgroundColor: Colors.white,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        builder: (context) => Container(
+          padding: const EdgeInsets.all(40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: kPrimaryGreen),
+              const SizedBox(height: 24),
+              Text('Analyzing Receipt...', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+              const SizedBox(height: 8),
+              Text('Sero is extracting financial data', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+
+      try {
+        final bytes = await image.readAsBytes();
+        final base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
+        
+        final res = await ApiService.post('/ai/extract-receipt', {
+          'base64Image': base64Image,
+        });
+
+        if (!mounted) return;
+        Navigator.pop(context); // Close loading
+
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body);
+          _showExtractionResult(data);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Extraction failed: ${res.body}')),
+          );
+        }
+      } catch (e) {
+        if (!mounted) return;
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
+  void _showExtractionResult(Map<String, dynamic> data) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (context) => ExtractionForm(
+        data: data, 
+        onConfirm: (tx) async {
+          await _service.addTransaction(tx);
+          await _load();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -54,18 +131,13 @@ class _FundsScreenState extends State<FundsScreen> {
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(),
           slivers: [
-            // 1. Branding Header
-            const _BrandingHeader(),
-
-            // 2. Hero Section
-            const _HeroHeader(),
-
-            // 3. Wealth Metrics Vertical Stack
+            const BrandingHeader(),
+            const HeroHeader(),
             SliverPadding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _FinancialCard(
+                  FinancialCard(
                     title: 'Total Collections',
                     amount: '₹${_summary?.totalCollected.toStringAsFixed(2) ?? "0.00"}',
                     trend: '12.5% vs last month',
@@ -73,7 +145,7 @@ class _FundsScreenState extends State<FundsScreen> {
                     isPositive: true,
                   ),
                   const SizedBox(height: 16),
-                  _FinancialCard(
+                  const FinancialCard(
                     title: 'Outstanding Dues',
                     amount: '₹12,840.00',
                     trend: '14 Residents with overdue payments',
@@ -81,10 +153,10 @@ class _FundsScreenState extends State<FundsScreen> {
                     isNeutral: true,
                   ),
                   const SizedBox(height: 16),
-                  _FinancialCard(
+                  FinancialCard(
                     title: 'Recent Expenses',
                     amount: '₹${_summary?.totalSpent.toStringAsFixed(2) ?? "0.00"}',
-                    trend: 'Maintenace, Security, & Landscaping',
+                    trend: 'Maintenance, Security, & Landscaping',
                     icon: Icons.receipt_long_rounded,
                     isNeutral: true,
                   ),
@@ -92,85 +164,204 @@ class _FundsScreenState extends State<FundsScreen> {
                 ]),
               ),
             ),
-
-            // 4. Cashflow Trend Chart
-            const SliverToBoxAdapter(
-              child: _CashflowChart(),
-            ),
-
-            // 5. Overdue Dues Section
-            const SliverToBoxAdapter(
-              child: _OverdueSection(),
-            ),
-
-            // 6. Recent Disbursements Table
+            const SliverToBoxAdapter(child: CashflowChart()),
+            const SliverToBoxAdapter(child: OverdueSection()),
             SliverToBoxAdapter(
-              child: _DisbursementsSection(transactions: _transactions),
+              child: DisbursementsSection(
+                transactions: _transactions,
+                onSmartScan: _smartScan,
+              ),
             ),
-
-            // Bottom Spacing for Floating Navbar
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
           ],
         ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const AiChatScreen(
+                initialMessage: 'Analyze my expenses and detect anomalies',
+                initialContext: {'screen': 'funds'},
+              ),
+            ),
+          );
+        },
+        backgroundColor: kPrimaryGreen,
+        child: const Icon(Icons.auto_awesome, color: Colors.white),
+      ),
     );
   }
 }
 
-class _BrandingHeader extends StatelessWidget {
-  const _BrandingHeader();
+class ExtractionForm extends StatefulWidget {
+  final Map<String, dynamic> data;
+  final Function(FundTransaction) onConfirm;
+
+  const ExtractionForm({super.key, required this.data, required this.onConfirm});
+
+  @override
+  State<ExtractionForm> createState() => _ExtractionFormState();
+}
+
+class _ExtractionFormState extends State<ExtractionForm> {
+  late TextEditingController _vendorController;
+  late TextEditingController _amountController;
+  late TextEditingController _dateController;
+  late TextEditingController _noteController;
+  String _category = 'Other';
+  
+  bool _doubleConfirm = false;
+  int _secondsRemaining = 600; // 10 minutes
+  Timer? _timer;
+
+  final List<String> _categories = [
+    'Maintenance', 'Utilities', 'Security', 'Repairs', 'Landscaping',
+    'Stationery', 'Events', 'Sinking Fund', 'Member Dues', 'Other'
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    final parsed = widget.data['parsed'] ?? widget.data;
+    _vendorController = TextEditingController(text: parsed['vendor']?.toString() ?? '');
+    _amountController = TextEditingController(text: parsed['amount']?.toString() ?? '');
+    _dateController = TextEditingController(text: parsed['date']?.toString() ?? '');
+    _noteController = TextEditingController(text: parsed['note']?.toString() ?? '');
+    _category = parsed['category']?.toString() ?? 'Other';
+    if (!_categories.contains(_category)) _category = 'Other';
+
+    _startTimer();
+  }
+
+  void _startTimer() {
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_secondsRemaining > 0) {
+        if (mounted) {
+          setState(() => _secondsRemaining--);
+        }
+      } else {
+        _timer?.cancel();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _vendorController.dispose();
+    _amountController.dispose();
+    _dateController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: Container(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top + 14,
-          left: 20,
-          right: 20,
-          bottom: 12,
-        ),
-        color: const Color(0xFFF8FAFC), // Matches screen background
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    final amount = double.tryParse(_amountController.text) ?? 0.0;
+    final isExpired = _secondsRemaining <= 0;
+    final needsDoubleConfirm = amount >= 5000;
+
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+        top: 24, left: 24, right: 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: const BoxDecoration(
-                    color: kPrimaryGreen,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: SocietyLogo(size: 20, color: Colors.white),
-                  ),
+                Row(
+                  children: [
+                    const Icon(Icons.auto_awesome, color: kPrimaryGreen, size: 20),
+                    const SizedBox(width: 8),
+                    Text('Verify AI Extraction', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700)),
+                  ],
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  'The Sero',
-                  style: GoogleFonts.outfit(
-                    color: const Color(0xFF1F2937),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isExpired ? Colors.red.shade50 : (_secondsRemaining < 120 ? Colors.orange.shade50 : Colors.blue.shade50),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                  child: Text(
+                    isExpired ? 'EXPIRED' : '${(_secondsRemaining / 60).floor()}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12, 
+                      fontWeight: FontWeight.w700,
+                      color: isExpired ? Colors.red : (_secondsRemaining < 120 ? Colors.orange : Colors.blue),
+                    ),
                   ),
                 ),
               ],
             ),
-            Container(
-              width: 38,
-              height: 38,
-              decoration: const BoxDecoration(
-                color: Color(0xFFF1F5F9),
-                shape: BoxShape.circle,
+            const SizedBox(height: 24),
+            
+            _EditableField(label: 'Vendor', controller: _vendorController),
+            _EditableField(label: 'Amount (₹)', controller: _amountController, isHero: true, keyboardType: TextInputType.number),
+            _EditableField(label: 'Date (YYYY-MM-DD)', controller: _dateController),
+            
+            Text('CATEGORY', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 1.1)),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _categories.contains(_category) ? _category : 'Other',
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              child: const Icon(
-                Icons.notifications_none_rounded,
-                color: Color(0xFF64748B),
-                size: 20,
+              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: GoogleFonts.outfit(fontSize: 14)))).toList(),
+              onChanged: (val) => setState(() => _category = val ?? 'Other'),
+            ),
+            const SizedBox(height: 16),
+            _EditableField(label: 'Note', controller: _noteController),
+
+            const SizedBox(height: 32),
+            
+            if (_doubleConfirm)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Center(child: Text('⚠️ Are you sure? This is a significant amount.', style: GoogleFonts.outfit(fontSize: 13, color: Colors.blue.shade900, fontWeight: FontWeight.w600))),
+              ),
+
+            ElevatedButton(
+              onPressed: isExpired ? null : () {
+                if (needsDoubleConfirm && !_doubleConfirm) {
+                  setState(() => _doubleConfirm = true);
+                  return;
+                }
+                
+                final tx = FundTransaction(
+                  id: '', 
+                  title: _vendorController.text,
+                  description: _noteController.text,
+                  amount: -1 * (double.tryParse(_amountController.text) ?? 0.0),
+                  date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
+                  category: _category,
+                );
+                
+                widget.onConfirm(tx);
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _doubleConfirm ? Colors.blue.shade700 : kPrimaryGreen,
+                disabledBackgroundColor: Colors.grey.shade300,
+                minimumSize: const Size(double.infinity, 56),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                elevation: 0,
+              ),
+              child: Text(
+                isExpired ? 'EXPIRED' : (_doubleConfirm ? 'YES, CONFIRM & SAVE' : '✅ CONFIRM & SAVE'), 
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1),
               ),
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -178,442 +369,43 @@ class _BrandingHeader extends StatelessWidget {
   }
 }
 
-class _HeroHeader extends StatelessWidget {
-  const _HeroHeader();
+class _EditableField extends StatelessWidget {
+  final String label;
+  final TextEditingController controller;
+  final bool isHero;
+  final TextInputType keyboardType;
 
-  @override
-  Widget build(BuildContext context) {
-    return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'FINANCIAL INTELLIGENCE',
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-                color: const Color(0xFF64748B),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Estate Treasury\nOverview',
-              style: GoogleFonts.outfit(
-                fontSize: 32,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.8,
-                height: 1.1,
-                color: const Color(0xFF1E293B),
-              ),
-            ),
-          ],
-        ),
-      ).animate().fade().slideY(begin: 0.1),
-    );
-  }
-}
-
-class _FinancialCard extends StatelessWidget {
-  final String title;
-  final String amount;
-  final String trend;
-  final IconData icon;
-  final bool isPositive;
-  final bool isNeutral;
-
-  const _FinancialCard({
-    required this.title,
-    required this.amount,
-    required this.trend,
-    required this.icon,
-    this.isPositive = false,
-    this.isNeutral = false,
+  const _EditableField({
+    required this.label, 
+    required this.controller, 
+    this.isHero = false,
+    this.keyboardType = TextInputType.text,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Stack(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: GoogleFonts.outfit(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFF94A3B8),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                amount,
-                style: GoogleFonts.outfit(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: const Color(0xFF1E3A8A),
-                  letterSpacing: -0.5,
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (isPositive)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD1FAE5),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.trending_up, color: Color(0xFF059669), size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        trend,
-                        style: GoogleFonts.outfit(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF059669),
-                        ),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                Text(
-                  trend,
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    color: const Color(0xFF64748B),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-            ],
-          ),
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF8FAFC),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: const Color(0xFFE2E8F0)),
-              ),
-              child: Icon(icon, color: const Color(0xFFCBD5E1), size: 32),
-            ),
-          ),
-        ],
-      ),
-    ).animate().fade(delay: 200.ms).slideX(begin: 0.1);
-  }
-}
-
-class _CashflowChart extends StatelessWidget {
-  const _CashflowChart();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Monthly',
-                    style: GoogleFonts.outfit(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  Text(
-                    'Cashflow Trend',
-                    style: GoogleFonts.outfit(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFF64748B),
-                    ),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFF1F5F9),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.05),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        'Monthly',
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 12),
-                      child: Text('Quarterly', style: TextStyle(fontSize: 12, color: Color(0xFF64748B))),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 48),
-          SizedBox(
-            height: 200,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                _buildBar('JAN', 0.4),
-                _buildBar('FEB', 0.5),
-                _buildBar('MAR', 0.8),
-                _buildBar('APR', 0.6),
-                _buildBar('MAY', 1.0, isDark: true),
-                _buildBar('JUN', 0.35),
-                _buildBar('JUL', 0.55),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fade(delay: 400.ms).slideY(begin: 0.1);
-  }
-
-  Widget _buildBar(String label, double heightPct, {bool isDark = false}) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Container(
-          width: 28,
-          height: 140 * heightPct,
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF334155) : const Color(0xFFBFDBFE),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          label,
-          style: GoogleFonts.outfit(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFF94A3B8),
-            letterSpacing: 0.5,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _OverdueSection extends StatelessWidget {
-  const _OverdueSection();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(20),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Overdue Dues',
-                style: GoogleFonts.outfit(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1E293B),
-                ),
-              ),
-              Text(
-                'View All',
-                style: GoogleFonts.outfit(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFF1E3A8A),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _OverdueItem(name: 'Sebastian Vale', unit: 'Unit 402-B • 2 months', amount: '₹1,250', img: '1'),
-          _OverdueItem(name: 'Elara Vance', unit: 'Unit 112-A • 1 month', amount: '₹625', img: '2'),
-          _OverdueItem(name: 'Julian Thorne', unit: 'Penthouse 2 • 3 months', amount: '₹4,800', img: '3'),
-          _OverdueItem(name: 'Marcella Reed', unit: 'Unit 805-C • 1 month', amount: '₹625', img: '4'),
-          const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDBEAFE),
-              foregroundColor: const Color(0xFF1E40AF),
-              minimumSize: const Size(double.infinity, 48),
-              elevation: 0,
-            ),
-            child: const Text('Send Mass Reminders'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _OverdueItem extends StatelessWidget {
-  final String name, unit, amount, img;
-  const _OverdueItem({required this.name, required this.unit, required this.amount, required this.img});
-
-  @override
-  Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Row(
-        children: [
-          CircleAvatar(radius: 20, backgroundImage: NetworkImage('https://i.pravatar.cc/150?u=$img')),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 14)),
-                Text(unit, style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B))),
-              ],
-            ),
-          ),
-          Text(
-            amount,
-            style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: const Color(0xFF991B1B), fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DisbursementsSection extends StatelessWidget {
-  final List<FundTransaction> transactions;
-  const _DisbursementsSection({required this.transactions});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recent',
-                    style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)),
-                  ),
-                  Text(
-                    'Disbursements',
-                    style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Authorized expenses for the\nmonth of May',
-                    style: GoogleFonts.outfit(fontSize: 13, color: const Color(0xFF64748B), height: 1.3),
-                  ),
-                ],
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF334155),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.add, color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Log New\nExpense',
-                      style: GoogleFonts.outfit(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600, height: 1.1),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
+          Text(label.toUpperCase(), style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 1.1)),
+          const SizedBox(height: 6),
+          TextField(
+            controller: controller,
+            keyboardType: keyboardType,
+            style: GoogleFonts.outfit(
+              fontSize: isHero ? 22 : 15,
+              fontWeight: isHero ? FontWeight.w700 : FontWeight.w500,
+              color: isHero ? const Color(0xFF1E3A8A) : const Color(0xFF334155),
             ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('VENDOR / CATEGORY', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8))),
-                    Text('TRANSACTION ID', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8))),
-                    Text('DATE', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8))),
-                  ],
-                ),
-                const Divider(height: 32, color: Color(0xFFF1F5F9)),
-                _DisbursementRow(name: 'Evergreen Landscaping', cat: 'Estate Maintenance', id: '#TXN-88421', date: 'May 12, 2024'),
-                _DisbursementRow(name: 'Titan Security Systems', cat: 'Security & Surveillance', id: '#TXN-88405', date: 'May 10, 2024'),
-                _DisbursementRow(name: 'Metro Water & Sewage', cat: 'Utilities', id: '#TXN-88399', date: 'May 08, 2024'),
-              ],
+            decoration: InputDecoration(
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              hintText: 'Enter $label',
+              hintStyle: GoogleFonts.outfit(color: Colors.grey, fontSize: 14),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             ),
           ),
         ],
@@ -621,38 +413,3 @@ class _DisbursementsSection extends StatelessWidget {
     );
   }
 }
-
-class _DisbursementRow extends StatelessWidget {
-  final String name, cat, id, date;
-  const _DisbursementRow({required this.name, required this.cat, required this.id, required this.date});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(name, style: GoogleFonts.outfit(fontWeight: FontWeight.w700, fontSize: 13, color: const Color(0xFF1E293B))),
-                Text(cat, style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B))),
-              ],
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Text(id, style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B), fontWeight: FontWeight.w500)),
-          ),
-          Expanded(
-            child: Text(date, textAlign: TextAlign.right, style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B), fontWeight: FontWeight.w500)),
-          ),
-        ],
-      ),
-    );
-  }
-}
-

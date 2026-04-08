@@ -26,7 +26,7 @@ app.use((req, res, next) => {
   logger.info({ method: req.method, url: req.url }, "Incoming Request");
   next();
 });
-app.use(express.json({ limit: "10kb" }));
+app.use(express.json({ limit: "5mb" }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 app.use("/auth", require("./routes/auth"));   // register, login, approve/reject

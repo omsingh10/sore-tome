@@ -19,34 +19,70 @@ The issue count has increased from 38 to 56, primarily due to the addition of mo
 - **Hardcoded Colors**: Still persisting in newer screens (Auth related).
 - **Text Styling**: Some `Text` widgets in the "Pending Approval" UI require `GoogleFonts.outfit` for consistency.
 
-## Priority Fixes Needed (Frontend)
-- [ ] Migrate all `withOpacity` to `withValues` to future-proof the "The Sero" graphics engine (High Priority).
-- [ ] Implement `mounted` checks for all AI, Firestore, and Auth service calls.
-- [ ] Extract remaining hardcoded branding colors to `theme.dart`.
-- [ ] Fix persistent linting markers in `lib/main.dart`.
+---
 
-## Backend AI Infrastructure Debt
+## 🚀 Resolved Issues & Technical Debt (Refactoring & AI)
 
-The backend's Resilient AI Gateway is currently operational but requires the following structural fixes to ensure true production readiness and prevent server bottlenecks:
+Since the last audit, we have successfully resolved several critical architectural bottlenecks:
 
-### 1. Synchronous Thread Blocking (High Priority)
-- **Problem**: Heavy batch AI extractions (like parsing multi-page PDF rulebooks) are processed on the main Node.js event loop, blocking standard HTTP requests.
-- **Recommendation**: Wire the `AIQueueService` with **Redis + BullMQ** to offload heavy Langchain execution to asynchronous background workers.
+### 1. Monolithic Screen Congestion
+- **Issue**: Six core screens (`AI Chat`, `Funds`, `Admin Users`, `Admin Channels`, `Admin Home`, `Issues`) were 500-1,800 lines long, making maintenance high-risk.
+- **Solution**: Executed a **Massive Modularization Overhaul**, extracting 80-90% of UI logic into thematic `widgets/` directories.
+- **Status**: ✅ Completed. Core screens are now <200 lines each.
 
-### 2. Output Formatting Instability (Medium Priority)
-- **Problem**: Fallback LLMs occasionally hallucinate malformed JSON when processing complex extractions, causing database insertion errors.
-- **Recommendation**: Implement strict **Zod** schema validation inside `AIExtractionService` to sanitize and ensure exact data structures.
+### 2. Lack of Ingestion Visibility (UX)
+- **Issue**: Admins could trigger document ingestion but had no way to track progress or verify if a 50-page PDF was indexed.
+- **Solution**: Built a real-time **AI Ingestion Console** in the Admin dashboard synced to a Firestore `ai_jobs` stream fueled by **BullMQ**.
+- **Status**: ✅ Completed. Live progress bars and status chips (Indexed/Failed) are operational.
 
-### 3. Missing Cascading Circuit Breakers (Medium Priority)
-- **Problem**: The AI fallback mechanism waits for full network timeouts (often up to 30s) before failing over to the next LLM provider (e.g., Groq -> Cerebras), causing poor UX during upstream disruptions.
-- **Recommendation**: Implement Redis-backed "circuit breakers" to instantly bypass any failing Langchain provider for ~10 seconds after a detected failure.
+### 3. FilePicker (v11) API Breakage
+- **Issue**: The `.platform` getter was removed in a package update, causing a complete build failure.
+- **Solution**: Migrated all instances (e.g., `AdminAIScreen:41`) to the new static `FilePicker.pickFiles()` API.
+- **Status**: ✅ Fixed.
 
-### 4. Vector Metadata Isolation Safety (Critical)
-- **Problem**: Cross-tenant data leakage is theoretically possible if the pgvector chunking pipeline drops or omits the `society_id`.
-- **Recommendation**: Enforce rigid, mandatory `society_id` assertions at the Document Metadata level before any `VectorStoreService` insertion.
+### 4. Unsafe Async BuildContext Usage
+- **Issue**: Multiple `use_build_context_synchronously` warnings were present in the AI Chat and Funds modules.
+- **Solution**: Hardened all async gaps with `if (!context.mounted) return;` checks to prevent potential crashes on high-latency API responses.
+- **Status**: ✅ Fixed.
 
-## Priority Fixes Needed (Backend)
-- [ ] Implement Redis + BullMQ background task queue for AI document extraction.
-- [ ] Add Zod validation schemas to sanitize all LLM JSON generation.
-- [ ] Build custom API circuit breakers for the AI Provider Mesh.
-- [ ] Hardcode metadata assertions for `society_id` in pgvector pipelines.
+### 5. Deprecated `DropdownButtonFormField` Properties
+- **Issue**: Use of the deprecated `value` property was causing framework-level linting warnings.
+- **Solution**: Migrated all core form fields to use `initialValue` as per Flutter 3.33+ standards.
+- **Status**: ✅ Fixed.
+
+### 6. Android Build Cache/Root Conflict
+- **Issue**: "this and base files have different roots" Gradle error due to E: vs C: drive mismatch.
+- **Solution**: Orchestrated systematic `flutter clean` and cache wipe for the **E:** drive mount.
+- **Status**: ✅ Resolved.
+
+---
+
+## 🏗️ Remaining Infrastructure Debt (Updated)
+
+While the Core UX is now stable and modular, the following technical goals remain:
+
+### 1. Vector Metadata Assertion (Hardening)
+- **Problem**: We need "Double-Lock" security to ensure `society_id` is never dropped during the pgvector embedding pipeline.
+- **Recommendation**: Implement a formal **Guardrail Middleware** in `VectorStoreService` that throws a 500 if a chunk is missing its tenant tag.
+
+### 2. Standardized `withValues` Migration
+- **Problem**: 50+ instances of the deprecated `.withOpacity()` still exist in the auth and profile screens.
+- **Priority**: Medium.
+
+### 3. Per-Society Usage Dashboard
+- **Problem**: Administrators currently lack a way to see their AI token consumption vs. their billing tier.
+- **Priority**: High (Next Phase).
+
+---
+
+## ✅ Updated Priority Fixes Roadmap
+
+### Frontend
+- [ ] Migrate remaining 50+ `withOpacity` to `withValues`.
+- [ ] Implement a "Retry" button for failed AI Ingestion tasks in the Admin Console.
+- [ ] Build the **Society AI Analytics Header** (Tokens used, Docs indexed).
+
+### Backend
+- [ ] Hardcode strict `society_id` assertions in the ingestion pipeline.
+- [ ] Build the `/ai/usage/stats` endpoint to feed the new Admin header.
+- [ ] Transition Tesseract.js (WASM) to a dedicated server-side microservice for faster batch processing.

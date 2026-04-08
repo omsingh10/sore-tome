@@ -80,7 +80,9 @@ class FirestoreService {
       'title': tx.title,
       'amount': tx.amount.abs(),
       'type': tx.amount >= 0 ? 'credit' : 'debit',
+      'category': tx.category, // V3.9: Add category
       'note': tx.description,
+      'transactionId': tx.transactionId, // V3.9: Track AI/External IDs
     });
   }
 }

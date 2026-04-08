@@ -227,7 +227,7 @@ class _PostIssueScreenState extends State<PostIssueScreen> {
               ? null
               : [
                   BoxShadow(
-                    color: const Color(0xFF345D7E).withOpacity(0.2),
+                    color: const Color(0xFF345D7E).withValues(alpha: 0.2),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                   ),
