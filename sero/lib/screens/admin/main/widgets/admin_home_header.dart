@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../../../../widgets/brand_logo.dart';
 
 class AdminHomeHeader extends StatelessWidget {
@@ -19,9 +18,9 @@ class AdminHomeHeader extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.fromLTRB(
           24,
-          MediaQuery.of(context).padding.top + 16,
+          MediaQuery.of(context).padding.top + 8,
           24,
-          32,
+          16,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -50,26 +49,26 @@ class AdminHomeHeader extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 20),
             Text(
               title,
               style: GoogleFonts.outfit(
                 color: const Color(0xFF1F2937),
-                fontSize: 48,
+                fontSize: 36,
                 fontWeight: FontWeight.w800,
-                height: 1.05,
-                letterSpacing: -1.5,
+                height: 1.1,
+                letterSpacing: -1.0,
               ),
-            ).animate().fade(duration: 600.ms).slideX(begin: -0.1),
+            ),
             const SizedBox(height: 12),
             Text(
               subtitle,
               style: GoogleFonts.outfit(
                 color: const Color(0xFF64748B),
-                fontSize: 15,
+                fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
-            ).animate().fade(delay: 200.ms),
+            ),
           ],
         ),
       ),

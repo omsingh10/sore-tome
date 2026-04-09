@@ -27,6 +27,7 @@ function initFirebase() {
     admin.initializeApp({
       credential: admin.credential.cert(require(serviceAccountPath)),
       projectId: process.env.FIREBASE_PROJECT_ID,
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`,
     });
 
     db = admin.firestore();
@@ -41,8 +42,12 @@ function getDb() {
   return db;
 }
 
+function getStorage() {
+  return admin.storage();
+}
+
 function getAdmin() {
   return admin;
 }
 
-module.exports = { initFirebase, getDb, getAdmin };
+module.exports = { initFirebase, getDb, getStorage, getAdmin };

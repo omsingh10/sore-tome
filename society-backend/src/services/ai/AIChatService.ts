@@ -108,13 +108,14 @@ export class AIChatService {
 
       const safeInput = await this.guardrails.validateInput(userMessage, context);
 
-      const cached = await this.cache.get(`${safeInput}_${fileContent.length}`, societyId, context);
+      // V3.12: Avoid cache hits if grounded contextData is provided (prevents hallucination persistence)
+      const cached = contextData ? null : await this.cache.get(`${safeInput}_${fileContent.length}`, societyId, context);
       if (cached) {
         const parsed = this.safeParseAIResponse(cached);
         return parsed || { type: "text", reply: cached };
       }
 
-      const { messages, sources } = await this.prepareContext(userId, societyId, safeInput, context, fileContent);
+      const { messages, sources } = await this.prepareContext(userId, societyId, safeInput, context, fileContent, contextData);
 
       const model = await this.provider.getRouteModel("RETRIEVAL", context);
       const response = await model.invoke(messages);

@@ -5,6 +5,7 @@ class Issue {
   final String postedBy;
   final DateTime createdAt;
   final String status; // 'open', 'in_progress', 'resolved'
+  final String priority; // 'high', 'medium', 'low'
 
   Issue({
     required this.id,
@@ -13,6 +14,7 @@ class Issue {
     required this.postedBy,
     required this.createdAt,
     this.status = 'open',
+    this.priority = 'medium',
   });
 
   factory Issue.fromMap(Map<String, dynamic> map) {
@@ -21,8 +23,9 @@ class Issue {
       title: map['title'] ?? '',
       description: map['description'] ?? '',
       postedBy: map['postedBy'] ?? '',
-      createdAt: DateTime.tryParse(map['createdAt'] ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(map['createdAt']?.toString() ?? '') ?? DateTime.now(),
       status: map['status'] ?? 'open',
+      priority: map['priority'] ?? 'medium',
     );
   }
 
@@ -34,6 +37,7 @@ class Issue {
       'postedBy': postedBy,
       'createdAt': createdAt.toIso8601String(),
       'status': status,
+      'priority': priority,
     };
   }
 }

@@ -21,7 +21,8 @@ class ConciergeBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final content = message['reply'] ??
+    final content =
+        message['reply'] ??
         message['content'] ??
         message['partialData'] ??
         'No response content';
@@ -93,7 +94,7 @@ class ConciergeBubble extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Text(
-                'CONCIERGE AI',
+                'SERO AI',
                 style: GoogleFonts.outfit(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,

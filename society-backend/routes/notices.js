@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageContent } = require("../middleware/auth");
+const { AuditLogService } = require("../src/services/AuditLogService");
 
 // GET /notices — all residents can see notices (newest first)
 router.get("/", authMiddleware, async (req, res) => {
@@ -53,6 +54,13 @@ router.post("/", authMiddleware, canManageContent, async (req, res) => {
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });
 
+    // Log the action
+    await AuditLogService.getInstance().logAdminAction(
+      req.user,
+      "Notice Posted",
+      `Posted notice: "${title}"`
+    );
+
     res.status(201).json({ id: docRef.id, message: "Notice posted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -64,6 +72,14 @@ router.delete("/:id", authMiddleware, canManageContent, async (req, res) => {
   try {
     const db = getDb();
     await db.collection("notices").doc(req.params.id).delete();
+    
+    // Log the action
+    await AuditLogService.getInstance().logAdminAction(
+      req.user,
+      "Notice Deleted",
+      `Deleted notice ID: ${req.params.id}`
+    );
+
     res.json({ message: "Notice deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageContent } = require("../middleware/auth");
+const { AuditLogService } = require("../src/services/AuditLogService");
 
 // GET /issues — all issues (admin sees all, residents see their own + open ones)
 router.get("/", authMiddleware, async (req, res) => {
@@ -71,7 +72,7 @@ router.get("/:id", authMiddleware, async (req, res) => {
 // Body: { title, description, category? }  category = "maintenance" | "security" | "cleanliness" | "other"
 router.post("/", authMiddleware, async (req, res) => {
   try {
-    const { title, description, category = "other" } = req.body;
+    const { title, description, category = "other", priority = "medium" } = req.body;
     if (!title || !description)
       return res.status(400).json({ error: "title and description are required" });
 
@@ -80,6 +81,7 @@ router.post("/", authMiddleware, async (req, res) => {
       title,
       description,
       category,
+      priority,
       status: "open",
       postedBy: req.user.uid,
       postedByName: req.user.name || req.user.phone || "Unknown",
@@ -97,20 +99,30 @@ router.post("/", authMiddleware, async (req, res) => {
 // Body: { status }  status = "open" | "in_progress" | "resolved"
 router.patch("/:id/status", authMiddleware, canManageContent, async (req, res) => {
   try {
-    const { status, adminNote } = req.body;
+    const { status, adminNote, priority } = req.body;
     const validStatuses = ["open", "in_progress", "resolved"];
-    if (!validStatuses.includes(status))
+    if (status && !validStatuses.includes(status))
       return res.status(400).json({ error: "Invalid status. Use: open | in_progress | resolved" });
 
     const db = getDb();
-    await db.collection("issues").doc(req.params.id).update({
-      status,
-      adminNote: adminNote || "",
-      resolvedBy: req.user.uid,
+    const updates = {
       updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-    });
+      resolvedBy: req.user.uid,
+    };
+    if (status) updates.status = status;
+    if (adminNote !== undefined) updates.adminNote = adminNote;
+    if (priority) updates.priority = priority;
 
-    res.json({ message: `Issue marked as ${status}` });
+    await db.collection("issues").doc(req.params.id).update(updates);
+
+    // Log the action
+    await AuditLogService.getInstance().logAdminAction(
+      req.user,
+      "Issue Updated",
+      `Changed issue status to "${status}" for issue ID: ${req.params.id}`
+    );
+
+    res.json({ message: "Issue status updated successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

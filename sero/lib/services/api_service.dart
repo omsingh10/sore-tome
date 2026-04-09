@@ -5,8 +5,8 @@ import 'package:flutter/foundation.dart';
 
 class ApiService {
   static final String baseUrl = (kIsWeb || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.macOS)
-      ? 'http://localhost:3000'
-      : 'http://192.168.182.192:3000';
+      ? 'http://localhost:3001'
+      : 'http://192.168.182.192:3001';
 
   static Future<String?> getToken() async {
     final prefs = await SharedPreferences.getInstance();

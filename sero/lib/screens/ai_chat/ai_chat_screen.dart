@@ -11,6 +11,7 @@ import 'widgets/concierge_hero.dart';
 import 'widgets/quick_action_tiles.dart';
 import 'widgets/concierge_bubble.dart';
 import 'widgets/input_console.dart';
+import '../../services/firestore_service.dart';
 
 class AiChatScreen extends StatefulWidget {
   final String? initialMessage;
@@ -24,6 +25,7 @@ class AiChatScreen extends StatefulWidget {
 
 class _AiChatScreenState extends State<AiChatScreen> {
   final _aiService = AiService();
+  final _firestore = FirestoreService();
   final _msgCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   final _focusNode = FocusNode(); // Track input focus
@@ -143,7 +145,21 @@ class _AiChatScreenState extends State<AiChatScreen> {
             slivers: [
               const BrandingHeader(),
               const ConciergeHero(),
-              const QuickActionTiles(),
+               QuickActionTiles(onAction: (prompt, key) async {
+                Map<String, dynamic>? context;
+                if (key == 'financials') {
+                  final summary = await _firestore.getFundSummary();
+                  context = {
+                    'totalCollected': summary.totalCollected,
+                    'totalSpent': summary.totalSpent,
+                    'outstandingDues': summary.outstandingDues,
+                    'categories': summary.categoryBreakdown,
+                    'databaseStatus': 'Live Data from Firestore',
+                    'groundingRule': 'CRITICAL: Use these EXACT numbers. If any value is 0, report it as 0. Do NOT hallucinate placeholder values.',
+                  };
+                }
+                _send(message: prompt, context: context);
+              }),
 
               SliverPadding(
                 padding: const EdgeInsets.symmetric(

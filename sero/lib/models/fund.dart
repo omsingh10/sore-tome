@@ -52,10 +52,47 @@ class FundTransaction {
 class FundSummary {
   final double totalCollected;
   final double totalSpent;
+  final Map<String, double> categoryBreakdown;
+  final double outstandingDues;
+  final int overdueCount;
+  final String topExpenseCategories;
 
-  FundSummary({required this.totalCollected, required this.totalSpent});
+  FundSummary({
+    required this.totalCollected,
+    required this.totalSpent,
+    this.categoryBreakdown = const {},
+    this.outstandingDues = 0,
+    this.overdueCount = 0,
+    this.topExpenseCategories = 'None',
+  });
 
   double get remaining => totalCollected - totalSpent;
   double get percentRemaining =>
       totalCollected > 0 ? remaining / totalCollected : 0;
+}
+
+class OverdueResident {
+  final String uid;
+  final String name;
+  final String unitInfo;
+  final double amountOwed;
+  final int monthsOverdue;
+
+  OverdueResident({
+    required this.uid,
+    required this.name,
+    required this.unitInfo,
+    required this.amountOwed,
+    required this.monthsOverdue,
+  });
+
+  factory OverdueResident.fromMap(Map<String, dynamic> map) {
+    return OverdueResident(
+      uid: map['uid'] ?? '',
+      name: map['name'] ?? '',
+      unitInfo: map['unitInfo'] ?? '',
+      amountOwed: (map['amountOwed'] ?? 0).toDouble(),
+      monthsOverdue: (map['monthsOverdue'] ?? 0).toInt(),
+    );
+  }
 }

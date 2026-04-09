@@ -66,19 +66,22 @@ class ProfileScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 40),
-          ElevatedButton.icon(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () {
+                ref.read(authProvider.notifier).logout(); // Logout globally
+                Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false); // Erase stack and push login
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('SIGN OUT', style: TextStyle(fontWeight: FontWeight.bold)),
             ),
-            onPressed: () {
-              ref.read(authProvider.notifier).logout(); // Logout globally
-              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false); // Erase stack and push login
-            },
-            icon: const Icon(Icons.logout),
-            label: const Text('SIGN OUT', style: TextStyle(fontWeight: FontWeight.bold)),
           )
         ],
       ),

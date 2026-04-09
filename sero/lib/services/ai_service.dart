@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'api_service.dart';
 
 class AiService {
-  final List<Map<String, String>> _history = [];
+  final List<Map<String, dynamic>> _history = [];
 
-  List<Map<String, String>> get history => List.unmodifiable(_history);
+  List<Map<String, dynamic>> get history => List.unmodifiable(_history);
 
   Future<Map<String, dynamic>> sendMessage(String userMessage, {String? base64Image, Map<String, dynamic>? context}) async {
     _history.add({'role': 'user', 'content': userMessage});

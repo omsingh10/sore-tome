@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../app/theme.dart';
 import '../models/issue.dart';
+import '../providers/issues_provider.dart';
 
-class IssueCard extends StatefulWidget {
+class IssueCard extends ConsumerStatefulWidget {
   final Issue issue;
   final bool showResolveButton;
   final VoidCallback? onResolve;
@@ -16,10 +18,10 @@ class IssueCard extends StatefulWidget {
   });
 
   @override
-  State<IssueCard> createState() => _IssueCardState();
+  ConsumerState<IssueCard> createState() => _IssueCardState();
 }
 
-class _IssueCardState extends State<IssueCard> {
+class _IssueCardState extends ConsumerState<IssueCard> {
   bool _pressed = false;
 
   // ── Icon & color per issue type ─────────────────────────────────────────────
@@ -131,7 +133,9 @@ class _IssueCardState extends State<IssueCard> {
                         children: [
                           Expanded(
                             child: Text(
-                              widget.issue.title,
+                              widget.issue.title.startsWith('Chat Sync:') 
+                                  ? widget.issue.description 
+                                  : widget.issue.title,
                               style: GoogleFonts.outfit(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -146,9 +150,9 @@ class _IssueCardState extends State<IssueCard> {
                       ),
                       const SizedBox(height: 4),
 
-                      // Reporter + time
+                      // Reporter + time + Source
                       Text(
-                        'Reported by ${widget.issue.postedBy} · ${_timeAgo(widget.issue.createdAt)}',
+                        '${widget.issue.title.startsWith('Chat Sync:') ? 'Synced from Chat · ' : ''}Reported by ${widget.issue.postedBy} · ${_timeAgo(widget.issue.createdAt)}',
                         style: GoogleFonts.outfit(
                           fontSize: 11,
                           color: const Color(0xFF94A3B8),
@@ -164,17 +168,60 @@ class _IssueCardState extends State<IssueCard> {
                             label: 'STATUS',
                             child: _StatusDot(status: widget.issue.status),
                           ),
-                          const SizedBox(width: 24),
-                          _FooterColumn(
-                            label: 'ASSIGNED TO',
-                            child: _AssignedTo(status: widget.issue.status),
-                          ),
+                          if (widget.issue.status != 'open') ...[
+                            const SizedBox(width: 24),
+                            _FooterColumn(
+                              label: 'ASSIGNED TO',
+                              child: _AssignedTo(status: widget.issue.status),
+                            ),
+                          ],
                           const Spacer(),
-                          // More options
-                          Icon(
-                            Icons.more_vert_rounded,
-                            size: 18,
-                            color: const Color(0xFFCBD5E1),
+                          // Admin Menu (3 Dots)
+                          PopupMenuButton<String>(
+                            padding: EdgeInsets.zero,
+                            icon: const Icon(
+                              Icons.more_vert_rounded,
+                              size: 18,
+                              color: Color(0xFFCBD5E1),
+                            ),
+                            onSelected: (val) async {
+                              final notifier = ref.read(issuesProvider.notifier);
+                              if (val == 'resolve') await notifier.resolveIssue(widget.issue.id);
+                              if (val == 'assign') await notifier.assignIssue(widget.issue.id, 'Management');
+                              if (val == 'delete') await notifier.deleteIssue(widget.issue.id);
+                            },
+                            itemBuilder: (context) => [
+                              const PopupMenuItem(
+                                value: 'resolve',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.check_circle_outline, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Resolve'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'assign',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.assignment_ind_outlined, size: 18),
+                                    SizedBox(width: 8),
+                                    Text('Assign to Me'),
+                                  ],
+                                ),
+                              ),
+                              const PopupMenuItem(
+                                value: 'delete',
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                                    SizedBox(width: 8),
+                                    Text('Delete', style: TextStyle(color: Colors.red)),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),

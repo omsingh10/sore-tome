@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getDb, getAdmin } from "../../../config/firebase";
 import { VectorStoreService } from "./VectorStoreService";
 import { logger } from "../../shared/Logger";
-import { Pool } from "pg";
+import { Pool, PoolConfig } from "pg";
 import crypto from "crypto";
 import IORedis from "ioredis";
 
@@ -35,12 +35,68 @@ export class AIToolService {
   private static instance: AIToolService;
   private pool: Pool;
   private redis: IORedis;
+  private isPostgresAvailable: boolean = true;
+  private isRedisAvailable: boolean = true;
+  private lastNetworkError: number = 0;
 
   private constructor() {
-    // Re-use pool from VectorStoreService for auditing
     const connStr = process.env.DATABASE_URL;
-    this.pool = new Pool({ connectionString: connStr });
-    this.redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
+    const config: PoolConfig = { 
+      connectionString: connStr,
+      max: 10,
+      idleTimeoutMillis: 10000, // Faster pruning of potentially dead connections
+      connectionTimeoutMillis: 10000,
+      keepAlive: true, // V3.12: Hardened for Cloud DBs (Neon/Supabase)
+      ssl: connStr?.includes('localhost') 
+        ? false 
+        : { rejectUnauthorized: false }
+    };
+    this.pool = new Pool(config);
+    
+    // AI V3.12: Resilience Layer - catch pool-wide errors
+    this.pool.on("error", (err) => {
+      this.isPostgresAvailable = false;
+      this.lastNetworkError = Date.now();
+      logger.warn({ error: err.message }, "PostgreSQL Connection lost - Backend entering degraded mode");
+    });
+
+    // Periodic heartbeat (Silent during downtime)
+    setInterval(async () => {
+      try {
+        await this.pool.query('SELECT 1');
+        this.isPostgresAvailable = true;
+      } catch (err) {
+        if (this.isPostgresAvailable) {
+          logger.warn("PostgreSQL heartbeat failed - check network connection");
+          this.isPostgresAvailable = false;
+        }
+      }
+    }, 30000);
+
+    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
+    // V3.12: Use options specifically for TLS handled by rediss://
+    this.redis = new IORedis(redisUrl, {
+      maxRetriesPerRequest: 3,
+      retryStrategy: (times: number) => Math.min(times * 50, 2000),
+      keepAlive: 10000,
+      tls: redisUrl.startsWith("rediss://") ? {} : undefined, // Explicit TLS for Upstash
+    });
+
+    // CRITICAL: Immediate error listener to prevent "Unhandled error event" crashes
+    this.redis.on("error", (err) => {
+      if (this.isRedisAvailable) {
+        logger.warn({ error: err.message }, "Redis connection unreachable - caching disabled");
+        this.isRedisAvailable = false;
+        this.lastNetworkError = Date.now();
+      }
+    });
+
+    this.redis.on("connect", () => {
+      if (!this.isRedisAvailable) {
+        logger.info("Redis connection restored");
+        this.isRedisAvailable = true;
+      }
+    });
   }
 
   public static getInstance(): AIToolService {
@@ -94,7 +150,7 @@ export class AIToolService {
       switch (task.tool_id) {
         case "create_notice":
           const noticeData = NoticeSchema.parse(task.params);
-          result = await this.createNotice(noticeData, userId);
+          result = await this.createNotice(noticeData, userId, societyId);
           break;
         case "log_expense":
           const expenseData = ExpenseSchema.parse(task.params);
@@ -125,25 +181,32 @@ export class AIToolService {
    * AI V3.10: Society Analytics with Cache support.
    */
   public async getSocietyStats(societyId: string) {
-    const cacheKey = `ai:stats:${societyId}`;
-    const cached = await this.redis.get(cacheKey);
-    if (cached) return JSON.parse(cached);
+    const targetSocietyId = societyId || "main_society";
+    const cacheKey = `ai:stats:${targetSocietyId}`;
+    if (!this.isRedisAvailable) return null; // Graceful skip
+    try {
+      const cached = await this.redis.get(cacheKey);
+      if (cached) return JSON.parse(cached);
+    } catch (e) {
+      this.isRedisAvailable = false;
+      return null;
+    }
 
     const db = getDb();
     
     // 1. Complaint Stats (Firestore)
-    const issues = await db.collection("issues").where("society_id", "==", societyId).get();
+    const issues = await db.collection("issues").where("society_id", "==", targetSocietyId).get();
     const complaints_count = issues.size;
     const open_complaints = issues.docs.filter((d: any) => d.data().status === "open").length;
 
     // 2. Notice Stats (Firestore - assuming they have society_id or postedBy)
-    const notices = await db.collection("notices").where("society_id", "==", societyId).get();
+    const notices = await db.collection("notices").where("society_id", "==", targetSocietyId).get();
     const notices_count = notices.size;
 
     // 3. AI Usage Stats (Postgres Audit Logs)
     const auditRes = await this.pool.query(
       `SELECT status, COUNT(*) FROM ai_audit_logs WHERE society_id = $1 GROUP BY status`,
-      [societyId]
+      [targetSocietyId]
     );
 
     const stats = {
@@ -164,20 +227,34 @@ export class AIToolService {
    * AI V3.11: Proactive Society Digest Aggregator
    */
   public async getSocietyDigest(societyId: string) {
-    const cacheKey = `ai:digest:${societyId}`;
+    const targetSocietyId = societyId || "main_society";
+    const cacheKey = `ai:digest:${targetSocietyId}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
-    const stats = await this.getSocietyStats(societyId);
-    const finance = await this.analyzeExpenses(societyId);
+    const stats = await this.getSocietyStats(targetSocietyId);
+    const finance = await this.analyzeExpenses(targetSocietyId);
     
     // Get latest processed AI jobs
     const db = getDb();
-    const latestJobs = await db.collection("ai_jobs")
-      .where("society_id", "==", societyId)
-      .orderBy("updated_at", "desc")
-      .limit(3)
+    // V3.12: Fetch without orderBy to avoid composite index requirement
+    // We fetch a larger batch and sort in-memory
+    const jobsSnap = await db.collection("ai_jobs")
+      .where("society_id", "==", targetSocietyId)
+      .limit(10) 
       .get();
+
+    const sortedJobs = jobsSnap.docs
+      .map((d: any) => ({
+        id: d.id,
+        ...d.data()
+      }))
+      .sort((a: any, b: any) => {
+        const dateA = a.updated_at?.toDate?.() || new Date(a.updated_at);
+        const dateB = b.updated_at?.toDate?.() || new Date(b.updated_at);
+        return dateB - dateA;
+      })
+      .slice(0, 3);
 
     const digest = {
       summary: `You have ${stats.complaints.open} open issues and ${stats.notices.total} active notices.`,
@@ -186,14 +263,14 @@ export class AIToolService {
         finance.totalSpent > 50000 ? `High spending detected this month (₹${finance.totalSpent.toLocaleString()}).` : "Spending is under control.",
         "AI is currently monitoring utility trends for anomalies."
       ],
-      activeIndexing: latestJobs.docs.map((d: any) => ({
-        file: d.data().file_name,
-        status: d.data().status
+      activeIndexing: sortedJobs.map((job: any) => ({
+        file: job.file_name,
+        status: job.status
       })),
       timestamp: new Date().toISOString()
     };
 
-    await this.redis.setex(cacheKey, 1800, JSON.stringify(digest)); // 30 min cache
+    await this.redis.setex(cacheKey, 300, JSON.stringify(digest)); // 5 min cache (V3.12 Optimized)
     return digest;
   }
 
@@ -201,27 +278,39 @@ export class AIToolService {
    * AI V3.10: Financial Analysis Tool with Redis caching.
    */
   public async analyzeExpenses(societyId: string) {
-    const cacheKey = `ai:finance:${societyId}`;
+    const targetSocietyId = societyId || "main_society";
+    const cacheKey = `ai:finance:${targetSocietyId}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
-    const sql = `
-      SELECT category, SUM(ABS(amount)) as total, COUNT(*) as count 
-      FROM fund_transactions 
-      WHERE society_id = $1 AND amount < 0
-      GROUP BY category
-      ORDER BY total DESC
-    `;
-    const res = await this.pool.query(sql, [societyId]);
+    const db = getDb();
+    // Zero-Config: Use only society_id filter to utilize automatic single-field index.
+    // Filtering for 'debit' type is performed in-memory.
+    const transSnap = await db.collection("transactions")
+      .where("society_id", "==", targetSocietyId)
+      .get();
+
+    const categoryMap: Record<string, { total: number, count: number }> = {};
+    transSnap.docs.forEach((doc: any) => {
+      const d = doc.data();
+      if (d.type !== "debit") return; // In-memory filtering
+      
+      if (!categoryMap[d.category]) {
+        categoryMap[d.category] = { total: 0, count: 0 };
+      }
+      categoryMap[d.category].total += d.amount;
+      categoryMap[d.category].count += 1;
+    });
 
     const analysis = {
-      categories: res.rows.map((row: any) => ({
-        name: row.category,
-        amount: parseFloat(row.total),
-        frequency: parseInt(row.count)
-      })),
-      totalSpent: res.rows.reduce((sum: number, row: any) => sum + parseFloat(row.total), 0),
-      topCategory: res.rows[0]?.category || "None",
+      categories: Object.entries(categoryMap).map(([name, data]) => ({
+        name,
+        amount: data.total,
+        frequency: data.count
+      })).sort((a: any, b: any) => b.amount - a.amount),
+      totalSpent: Object.values(categoryMap).reduce((sum, data) => sum + data.total, 0),
+      topCategory: Object.keys(categoryMap).length > 0 ? 
+        Object.entries(categoryMap).sort((a, b) => b[1].total - a[1].total)[0][0] : "None",
       analyzedAt: new Date().toISOString()
     };
 
@@ -246,29 +335,25 @@ export class AIToolService {
     const db = getDb();
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
     
-    // Check by title (semantic similarity is handled by prompt, but we do exact check here)
-    const titleMatch = await db.collection("issues")
+    // Zero-Config: Query by society_id only and filter details in-memory.
+    const issuesMatch = await db.collection("issues")
       .where("society_id", "==", societyId)
-      .where("title", "==", title)
-      .where("createdAt", ">", twentyFourHoursAgo)
-      .limit(1)
       .get();
 
-    if (!titleMatch.empty) return true;
-
-    // Check by location if provided
-    if (location) {
-      const locMatch = await db.collection("issues")
-        .where("society_id", "==", societyId)
-        .where("location", "==", location)
-        .where("status", "==", "open")
-        .limit(1)
-        .get();
+    const recentIssues = issuesMatch.docs.filter((doc: any) => {
+      const data = doc.data();
+      const createdAt = data.createdAt?.toDate?.() || new Date(data.createdAt);
       
-      if (!locMatch.empty) return true;
-    }
+      // Check title similarity (exact) for recent issues
+      if (data.title === title && createdAt > twentyFourHoursAgo) return true;
+      
+      // Check location match for any open issue
+      if (location && data.location === location && data.status === "open") return true;
+      
+      return false;
+    });
 
-    return false;
+    return recentIssues.length > 0;
   }
 
   private async updateStatus(actionId: string, status: string, error?: string) {
@@ -278,10 +363,11 @@ export class AIToolService {
 
   // --- Actual Tool Implementations ---
 
-  private async createNotice(data: z.infer<typeof NoticeSchema>, userId: string) {
+  private async createNotice(data: z.infer<typeof NoticeSchema>, userId: string, societyId: string) {
     const db = getDb();
     const docRef = await db.collection("notices").add({
       ...data,
+      society_id: societyId,
       postedBy: userId,
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });
@@ -289,22 +375,19 @@ export class AIToolService {
   }
 
   private async logExpense(data: z.infer<typeof ExpenseSchema>, userId: string, societyId: string) {
-    // Insert into PostgreSQL funds/transactions table
-    const sql = `
-      INSERT INTO fund_transactions (title, description, amount, category, society_id, created_at, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id;
-    `;
-    const res = await this.pool.query(sql, [
-      data.vendor,
-      data.note || `Expense for ${data.vendor}`,
-      -1 * data.amount,
-      data.category,
-      societyId,
-      data.date,
-      userId
-    ]);
-    return { id: res.rows[0].id, message: "Expense logged successfully" };
+    // V3.10: Log to Firestore transactions instead of Postgres
+    const db = getDb();
+    const docRef = await db.collection("transactions").add({
+      title: data.vendor,
+      amount: data.amount,
+      type: 'debit',
+      category: data.category,
+      note: data.note || "",
+      society_id: societyId,
+      addedBy: userId,
+      createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+    });
+    return { id: docRef.id, message: "Expense logged to Firestore successfully" };
   }
 
   private async createComplaint(data: z.infer<typeof ComplaintSchema>, userId: string, societyId: string) {

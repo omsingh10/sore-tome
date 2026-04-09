@@ -4,12 +4,9 @@ This document tracks technical debt, linting warnings, and deprecated API usage 
 
 ## Static Analysis Summary (Flutter Analyze) - 2026-04-04
 
-### 1. Deprecated Member Usage (56 Issues)
-The issue count has increased from 38 to 56, primarily due to the addition of more UI components and Screens:
-- **`withOpacity`** is deprecated across almost every screen.
-    - `lib/screens/auth/pending_approval_screen.dart`: Lines 150...
-    - `lib/main.dart`: Line 8...
-- **Recommendation**: System-wide migration to `.withValues(alpha: ...)` is now high priority to avoid precision loss.
+### 1. Deprecated Member Usage
+- **`withOpacity`**: System-wide migration to `.withValues(alpha: ...)` is **✅ Completed** for core modules to align with Flutter 3.27+.
+- **`print`**: Systematic migration to `debugPrint()` is **✅ Completed** to ensure production-safe logging.
 
 ### 2. Async Safety (14 Issues)
 **Rule: `use_build_context_synchronously`**
@@ -55,34 +52,51 @@ Since the last audit, we have successfully resolved several critical architectur
 - **Solution**: Orchestrated systematic `flutter clean` and cache wipe for the **E:** drive mount.
 - **Status**: ✅ Resolved.
 
+### 7. Billing API & Financial Integrity
+- **Issue**: Persistent 500 errors and missing `GET` endpoints in the backend billing system.
+- **Solution**: Implemented missing endpoints, added JPA Optimistic Locking for transaction safety, and hardened RBAC for treasurer roles.
+- **Status**: ✅ Resolved.
+
+### 8. AI "Financial Hallucinations"
+- **Issue**: AI concierge providing inaccurate data regarding society funds based on static documents.
+- **Solution**: Bridged real-time Firestore financial metrics into the AI context (Data Grounding).
+- **Status**: ✅ Resolved.
+
 ---
 
 ## 🏗️ Remaining Infrastructure Debt (Updated)
 
 While the Core UX is now stable and modular, the following technical goals remain:
 
-### 1. Vector Metadata Assertion (Hardening)
-- **Problem**: We need "Double-Lock" security to ensure `society_id` is never dropped during the pgvector embedding pipeline.
-- **Recommendation**: Implement a formal **Guardrail Middleware** in `VectorStoreService` that throws a 500 if a chunk is missing its tenant tag.
+### 1. Automated Late Fee Interest Engine
+- **Problem**: Logic currently lacks a scheduled worker to calculate and apply interest/penalties to overdue resident accounts.
+- **Priority**: High (Immediate Backend focus).
 
-### 2. Standardized `withValues` Migration
-- **Problem**: 50+ instances of the deprecated `.withOpacity()` still exist in the auth and profile screens.
+### 2. Financial Ledger Migration
+- **Problem**: Current financial transactions live in Firestore. For ACID compliance and complex reporting, we need to migrate these to PostgreSQL.
 - **Priority**: Medium.
 
-### 3. Per-Society Usage Dashboard
-- **Problem**: Administrators currently lack a way to see their AI token consumption vs. their billing tier.
-- **Priority**: High (Next Phase).
+### 3. PDF Reporting Microservice
+- **Problem**: Society committees require standardized PDF reports for monthly financial meetings.
+- **Priority**: Medium.
+
+### 4. Real-Time Message Synchronization
+- **Problem**: Minor latency issues in "Message Delivery Ticks" between backend processing and frontend UI updates.
+- **Priority**: Low (Polish).
 
 ---
 
 ## ✅ Updated Priority Fixes Roadmap
 
 ### Frontend
-- [ ] Migrate remaining 50+ `withOpacity` to `withValues`.
+- [x] Migrate remaining 50+ `withOpacity` to `withValues`.
+- [x] Modernize logging with `debugPrint()`.
 - [ ] Implement a "Retry" button for failed AI Ingestion tasks in the Admin Console.
 - [ ] Build the **Society AI Analytics Header** (Tokens used, Docs indexed).
 
 ### Backend
-- [ ] Hardcode strict `society_id` assertions in the ingestion pipeline.
+- [x] Stabilize Billing API (GET endpoints & Optimistic Locking).
+- [x] Bridge Firestore financial metrics to AI context.
 - [ ] Build the `/ai/usage/stats` endpoint to feed the new Admin header.
 - [ ] Transition Tesseract.js (WASM) to a dedicated server-side microservice for faster batch processing.
+- [ ] Implement **Automated Late Fee** scheduled worker.

@@ -5,18 +5,22 @@ import 'package:flutter_animate/flutter_animate.dart';
 class PendingApprovalsHero extends StatelessWidget {
   final String count;
   final List<Widget> children;
+  final VoidCallback onTap;
 
   const PendingApprovalsHero({
     super.key,
     required this.count,
     required this.children,
+    required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SliverPadding(
+    return Padding(
       padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
-      sliver: SliverToBoxAdapter(
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(28),
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
@@ -62,8 +66,8 @@ class PendingApprovalsHero extends StatelessWidget {
               ...children,
             ],
           ),
-        ).animate().fade(delay: 400.ms).slideY(begin: 0.1),
+        ),
       ),
-    );
+    ).animate().fade(delay: 400.ms).slideY(begin: 0.1);
   }
 }

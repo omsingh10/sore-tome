@@ -26,3 +26,13 @@ final financeAnalysisProvider = FutureProvider<Map<String, dynamic>>((ref) async
   }
   throw Exception('Failed to load financial analysis');
 });
+
+final aiJobsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  // V3.12: Fetch active background indexing jobs
+  final res = await ApiService.get('/ai/digest'); // Reuse digest which includes activeIndexing
+  if (res.statusCode == 200) {
+    final data = jsonDecode(res.body);
+    return List<Map<String, dynamic>>.from(data['activeIndexing'] ?? []);
+  }
+  return [];
+});

@@ -179,7 +179,7 @@ export class AIQueueService {
 
     // 1. Process & Chunk (includes OCR fallbacks & Heading-aware splitting)
     // V3.10: Pass progress callback to Parser
-    const docs = await parser.processFile(filePath, society_id, context, (p) => {
+    const docs = await parser.processFile(filePath, society_id, { ...context, documentType: job.data.documentType }, (p) => {
        this.updateJobStatus(job.id!, { progress: 10 + (p * 0.75) }); // Map 0-100 to 10-85 range
     });
 

@@ -42,4 +42,21 @@ class RulesNotifier extends StateNotifier<AsyncValue<List<Rule>>> {
       state = AsyncValue.error(e, st);
     }
   }
+
+  Future<void> addRule(String title, String content, String category) async {
+    try {
+      final res = await ApiService.post('/rules', {
+        'title': title,
+        'content': content,
+        'category': category,
+      });
+      if (res.statusCode == 201) {
+        await fetchRules();
+      } else {
+        throw jsonDecode(res.body)['error'] ?? 'Failed to add rule';
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

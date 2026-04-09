@@ -11,17 +11,47 @@ export class VectorStoreService {
   private static instance: VectorStoreService;
   private pool: Pool;
   private embeddings: CloudflareEmbeddings;
+  private isPostgresAvailable: boolean = true;
 
   private constructor() {
     const config: PoolConfig = {
       connectionString: process.env.DATABASE_URL,
+      max: 10, // Avoid connection exhaustion
+      idleTimeoutMillis: 10000,
+      connectionTimeoutMillis: 10000,
+      keepAlive: true,
+      ssl: process.env.DATABASE_URL?.includes('localhost') 
+        ? false 
+        : { rejectUnauthorized: false }
     };
+    if (config.ssl && process.env.DATABASE_URL?.includes('supabase')) {
+       // Silencing the 'pg' driver warning for external hosted DBs like Supabase
+       (config.ssl as any).sslmode = 'verify-full'; 
+    }
     this.pool = new Pool(config);
     this.embeddings = new CloudflareEmbeddings({
       accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
       apiToken: process.env.CLOUDFLARE_API_TOKEN!,
       model: "@cf/baai/bge-small-en-v1.5",
     });
+
+    // AI V3.12: Hardened error handling & Connection Status tracking
+    this.pool.on("error", (err) => {
+      if (this.isPostgresAvailable) {
+        logger.warn({ error: err.message }, "VectorStore PostgreSQL connection lost");
+        this.isPostgresAvailable = false;
+      }
+    });
+
+    // Periodic heartbeat to prevent idle termination (Silent during downtime)
+    setInterval(async () => {
+      try {
+        await this.pool.query('SELECT 1');
+        this.isPostgresAvailable = true;
+      } catch (err) {
+        this.isPostgresAvailable = false;
+      }
+    }, 30000);
 
     // V3.9: Initialize Audit Tables
     this.initializeAuditTable().catch(err => logger.error({ err }, "Failed to initialize AI Audit Table"));

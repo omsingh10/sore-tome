@@ -22,7 +22,7 @@ router.post("/chat", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { message, base64Image, stream = false, context: contextData } = req.body;
     const userId = (req as any).user?.uid || "anonymous";
-    const societyId = (req as any).user?.society_id || "default_society";
+    const societyId = (req as any).user?.society_id || "main_society";
 
     // 1. Validation
     if (!message || typeof message !== "string" || message.trim().length === 0) {
@@ -140,7 +140,7 @@ router.post("/extract-form", authMiddleware, async (req: Request, res: Response)
   try {
     const { documentId, documentText, fields } = req.body;
     const userId = (req as any).user?.uid || "anonymous";
-    const societyId = (req as any).user?.society_id || "default_society";
+    const societyId = (req as any).user?.society_id || "main_society";
     const requestId = `ext_${Date.now()}`;
 
     // Dynamic Zod Schema generation based on UI request
@@ -177,7 +177,7 @@ router.post("/upload-document", authMiddleware, async (req: Request, res: Respon
   try {
     const { fileUrl, fileName, fileType, documentType = "general" } = req.body;
     const userId = (req as any).user?.uid;
-    const societyId = (req as any).user?.society_id || "default_society";
+    const societyId = (req as any).user?.society_id || "main_society";
 
     if (!fileUrl || !fileName) {
       return res.status(400).json({ error: "fileUrl and fileName are required" });
@@ -219,7 +219,7 @@ router.post("/upload-document", authMiddleware, async (req: Request, res: Respon
  */
 router.get("/digest", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const societyId = (req as any).user?.society_id || "default_society";
+    const societyId = (req as any).user?.society_id || "main_society";
     const toolService = AIToolService.getInstance();
     const digest = await toolService.getSocietyDigest(societyId);
     return res.status(200).json(digest);
@@ -233,7 +233,7 @@ router.post("/execute-tool", authMiddleware, async (req: Request, res: Response)
   try {
     const { actionId } = req.body;
     const userId = (req as any).user?.uid;
-    const societyId = (req as any).user?.society_id || "default_society";
+    const societyId = (req as any).user?.society_id || "main_society";
     const role = (req as any).user?.role || "resident";
 
     if (!actionId) {
@@ -260,7 +260,7 @@ router.post("/ingest", authMiddleware, async (req: Request, res: Response) => {
   try {
     const { filePath } = req.body;
     const userId = (req as any).user?.uid || "anonymous";
-    const societyId = (req as any).user?.society_id || "default_society";
+    const societyId = (req as any).user?.society_id || "main_society";
 
     const queueService = AIQueueService.getInstance();
     await queueService.addJob("DOC_INGESTION", { 
@@ -285,7 +285,7 @@ router.get("/audit/export", authMiddleware, async (req: Request, res: Response) 
   try {
     const role = (req as any).user?.role;
     const adminId = (req as any).user?.uid;
-    const societyId = (req as any).user?.society_id;
+    const societyId = (req as any).user?.society_id || "main_society";
 
     if (!["admin", "main_admin"].includes(role)) {
       return res.status(403).json({ error: "Forbidden: Admins only" });
@@ -381,7 +381,7 @@ router.get("/audit/export", authMiddleware, async (req: Request, res: Response) 
  */
 router.get("/rules", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const societyId = (req as any).user?.society_id;
+    const societyId = (req as any).user?.society_id || "main_society";
     const vectorStore = VectorStoreService.getInstance();
     
     // For rules, we query document_chunks where documentType metadata matches 'rules'
@@ -389,7 +389,7 @@ router.get("/rules", authMiddleware, async (req: Request, res: Response) => {
     const result = await (store as any).pool.query(`
       SELECT DISTINCT ON (content) content, metadata->>'source' as source, metadata->>'processed_at' as processed_at
       FROM document_chunks
-      WHERE society_id = $1 AND metadata->>'documentType' = 'rules'
+      WHERE (metadata->>'society_id')::text = $1 AND metadata->>'documentType' = 'rules'
       ORDER BY content, metadata->>'processed_at' DESC
     `, [societyId]);
 
@@ -412,7 +412,7 @@ router.get("/rules", authMiddleware, async (req: Request, res: Response) => {
  */
 router.get("/stats", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const societyId = (req as any).user?.society_id;
+    const societyId = (req as any).user?.society_id || "main_society";
     const toolService = AIToolService.getInstance();
     
     // This will use internal Redis caching (Phase 4)
@@ -430,7 +430,7 @@ router.get("/stats", authMiddleware, async (req: Request, res: Response) => {
  */
 router.get("/finance-analysis", authMiddleware, async (req: Request, res: Response) => {
   try {
-    const societyId = (req as any).user?.society_id;
+    const societyId = (req as any).user?.society_id || "main_society";
     const toolService = AIToolService.getInstance();
     
     const analysis = await toolService.analyzeExpenses(societyId);

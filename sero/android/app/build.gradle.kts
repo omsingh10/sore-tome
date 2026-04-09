@@ -25,7 +25,7 @@ android {
     defaultConfig {
         // Must match android_client_info.package_name in google-services.json
         applicationId = "sero.com"
-        minSdk = 23
+        minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         multiDexEnabled = true
         versionCode = flutter.versionCode

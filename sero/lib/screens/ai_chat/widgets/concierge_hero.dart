@@ -13,7 +13,7 @@ class ConciergeHero extends StatelessWidget {
         child: Column(
           children: [
             Text(
-              'Concierge AI',
+              'SERO AI',
               style: GoogleFonts.outfit(
                 fontSize: 36,
                 fontWeight: FontWeight.w700,

@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../../providers/channels_provider.dart';
-import '../../channels/create_channel_screen.dart';
+import '../../channels/channel_chat_screen.dart';
 
 // Modularized Widgets
 import 'widgets/admin_channels_widgets.dart';
@@ -28,61 +28,67 @@ class AdminChannelsScreen extends ConsumerWidget {
           ),
 
           channelsAsync.when(
-            data: (channels) => SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final c = channels[index];
-                  return Padding(
+            data: (channels) {
+              if (channels.isEmpty) {
+                return SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 60),
+                    child: Center(
+                      child: Text(
+                        "No channels found. Create one below!",
+                        style: GoogleFonts.outfit(
+                          color: const Color(0xFF64748B),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              }
+              return SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final c = channels[index];
+                      return Padding(
                         padding: const EdgeInsets.only(bottom: 16),
-                        child: ChannelPremiumCard(channel: c),
-                      )
-                      .animate()
-                      .fade(delay: (200 + index * 50).ms)
-                      .slideX(begin: 0.05);
-                }, childCount: channels.length),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ChannelChatScreen(channel: c),
+                              ),
+                            );
+                          },
+                          borderRadius: BorderRadius.circular(24),
+                          child: ChannelPremiumCard(channel: c),
+                        ),
+                      );
+                    },
+                    childCount: channels.length,
+                  ),
+                ),
+              );
+            },
+            loading: () => const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 40),
+                child: Center(child: CircularProgressIndicator(color: Color(0xFF345D7E))),
               ),
             ),
-            loading: () => const SliverToBoxAdapter(
-              child: Center(child: CircularProgressIndicator()),
+            error: (e, st) => SliverToBoxAdapter(
+              child: Center(child: Text('Error: $e')),
             ),
-            error: (e, st) =>
-                SliverToBoxAdapter(child: Center(child: Text('Error: $e'))),
           ),
 
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
-              child: const NetworkVitalityCard()
-                  .animate()
-                  .fade(delay: 500.ms)
-                  .slideY(begin: 0.1),
-            ),
-          ),
+          // Removed SocietyOperationsHub as requested
+
+          // ModeratorsCard removed - managed via WhatsApp-style settings list
 
           const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: ModeratorsCard(),
-            ),
-          ).animate().fade(delay: 600.ms).slideY(begin: 0.1),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 120),
-              child: NewChannelCTA(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const CreateChannelScreen(),
-                    ),
-                  ).then((_) {
-                    ref.invalidate(channelsListProvider);
-                  });
-                },
-              ),
-            ).animate().fade(delay: 700.ms).slideY(begin: 0.1),
+            child: SizedBox(height: 48),
           ),
         ],
       ),

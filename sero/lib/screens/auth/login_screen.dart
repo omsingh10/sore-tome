@@ -82,7 +82,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       SnackBar(
         content: Text(msg),
         backgroundColor: Colors.redAccent,
-        behavior: SnackBarBehavior.floating,
+        behavior: SnackBarBehavior.fixed,
       ),
     );
   }
