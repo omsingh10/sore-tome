@@ -3,6 +3,8 @@ import '../models/notice.dart';
 import '../models/issue.dart';
 import '../models/fund.dart';
 import 'api_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 
 class FirestoreService {
   // ---------- NOTICES ----------
@@ -50,9 +52,21 @@ class FirestoreService {
     final res = await ApiService.get('/funds/summary');
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
+      
+      final Map<String, double> breakdown = {};
+      if (data['categoryBreakdown'] != null) {
+        (data['categoryBreakdown'] as Map).forEach((k, v) {
+          breakdown[k.toString()] = (v as num).toDouble();
+        });
+      }
+
       return FundSummary(
         totalCollected: (data['totalCollected'] ?? 0).toDouble(),
         totalSpent: (data['totalSpent'] ?? 0).toDouble(),
+        categoryBreakdown: breakdown,
+        outstandingDues: (data['outstandingDues'] ?? 0).toDouble(),
+        overdueCount: (data['overdueCount'] ?? 0).toInt(),
+        topExpenseCategories: data['topCategories'] ?? 'General Expenses',
       );
     }
     return FundSummary(totalCollected: 0, totalSpent: 0);
@@ -84,5 +98,47 @@ class FirestoreService {
       'note': tx.description,
       'transactionId': tx.transactionId, // V3.9: Track AI/External IDs
     });
+  }
+
+  Future<List<OverdueResident>> getOverdueResidents() async {
+    try {
+      final res = await ApiService.get('/funds/maintenance-status');
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        final list = data['unpaid'] as List?; // V3.12: Null-safe guard
+        if (list == null) return [];
+        
+        return list
+            .map((x) => OverdueResident.fromMap(x))
+            .toList();
+      }
+    } catch (e) {
+      // Degraded Mode: Silent fail to prevent UI crash
+      debugPrint('Error fetching overdue residents: $e');
+    }
+    return [];
+  }
+
+  // ---------- REAL-TIME STREAMS ----------
+  Stream<List<FundTransaction>> getTransactionsStream() {
+    return FirebaseFirestore.instance
+        .collection('transactions')
+        .where('type', isEqualTo: 'debit') // Focus on disbursements
+        .orderBy('createdAt', descending: true)
+        .limit(10)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            final data = doc.data();
+            return FundTransaction(
+              id: doc.id,
+              title: data['title'] ?? '',
+              description: data['note'] ?? '',
+              amount: -1 * (data['amount'] as num).toDouble(),
+              date: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+              category: data['category'] ?? 'Other',
+            );
+          }).toList();
+        });
   }
 }

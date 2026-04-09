@@ -54,7 +54,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         SnackBar(
           content: Text(e.toString()),
           backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
+          behavior: SnackBarBehavior.fixed,
         ),
       );
     }
@@ -106,9 +106,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
             const SizedBox(height: 48),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Back to Login'),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Back to Login'),
+              ),
             ),
           ],
         ),
@@ -251,15 +254,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   ),
                   const SizedBox(height: 40),
 
-                  ElevatedButton(
-                    onPressed: _loading ? null : _register,
-                    child: _loading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                                color: Colors.white, strokeWidth: 2.5))
-                        : const Text('Submit Registration'),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _loading ? null : _register,
+                      child: _loading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2.5))
+                          : const Text('Submit Registration'),
+                    ),
                   ),
                   const SizedBox(height: 24),
                 ],

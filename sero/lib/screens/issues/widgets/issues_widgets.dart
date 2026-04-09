@@ -65,12 +65,10 @@ class BrandingHeader extends StatelessWidget {
 }
 
 class IssuesHero extends StatelessWidget {
-  final VoidCallback onHistoryTap;
   final VoidCallback onNewTicketTap;
 
   const IssuesHero({
     super.key,
-    required this.onHistoryTap,
     required this.onNewTicketTap,
   });
 
@@ -92,31 +90,55 @@ class IssuesHero extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              'Resident Issues',
-              style: GoogleFonts.outfit(
-                color: const Color(0xFF0F172A),
-                fontSize: 32,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1.0,
-                height: 1.1,
-              ),
-            ),
-            const SizedBox(height: 14),
             Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
-                ActionButton(
-                  label: 'My History',
-                  icon: Icons.history_rounded,
-                  outlined: true,
-                  onTap: onHistoryTap,
+                Text(
+                  'Resident Issues',
+                  style: GoogleFonts.outfit(
+                    color: const Color(0xFF0F172A),
+                    fontSize: 32,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.0,
+                    height: 1.1,
+                  ),
                 ),
-                const SizedBox(width: 10),
-                ActionButton(
-                  label: '+ New Ticket',
-                  icon: null,
-                  outlined: false,
+                GestureDetector(
                   onTap: onNewTicketTap,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: kPrimaryGreen,
+                      borderRadius: BorderRadius.circular(100),
+                      boxShadow: [
+                        BoxShadow(
+                          color: kPrimaryGreen.withValues(alpha: 0.15),
+                          blurRadius: 12,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.add_rounded,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "New Ticket",
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -144,7 +166,7 @@ class StatRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -201,68 +223,7 @@ class StatRow extends StatelessWidget {
   }
 }
 
-class ActionButton extends StatelessWidget {
-  final String label;
-  final IconData? icon;
-  final bool outlined;
-  final VoidCallback onTap;
-
-  const ActionButton({
-    super.key,
-    required this.label,
-    required this.icon,
-    required this.outlined,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(
-          color: outlined ? Colors.white : kPrimaryGreen,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: outlined ? const Color(0xFFE2E8F0) : kPrimaryGreen,
-            width: 1.5,
-          ),
-          boxShadow: outlined
-              ? null
-              : [
-                  BoxShadow(
-                    color: kPrimaryGreen.withValues(alpha: 0.25),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(
-                icon,
-                size: 15,
-                color: outlined ? const Color(0xFF374151) : Colors.white,
-              ),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label,
-              style: GoogleFonts.outfit(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: outlined ? const Color(0xFF374151) : Colors.white,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+// ActionButton removed - using streamlined pill design inline
 
 class IssuesEmptyState extends StatelessWidget {
   const IssuesEmptyState({super.key});
@@ -270,7 +231,7 @@ class IssuesEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 60),
+      padding: const EdgeInsets.symmetric(vertical: 40),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [

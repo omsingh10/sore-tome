@@ -121,7 +121,7 @@ export class ParserService {
   public async processFile(
     filePath: string, 
     society_id: string, 
-    options: { requestId: string },
+    options: { requestId: string; documentType?: string },
     onProgress?: (progress: number) => void
   ): Promise<Document[]> {
     const startTime = Date.now();
@@ -169,6 +169,7 @@ export class ParserService {
         metadata: {
           society_id,
           source: fileName,
+          documentType: options.documentType || "general",
           chunk_index: idx,
           processed_at: new Date().toISOString(),
         },

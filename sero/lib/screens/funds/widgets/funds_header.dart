@@ -71,33 +71,56 @@ class HeroHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SliverToBoxAdapter(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'FINANCIAL INTELLIGENCE',
-              style: GoogleFonts.outfit(
-                fontSize: 11,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 1.2,
-                color: const Color(0xFF64748B),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          // Decorative Background Glow
+          Positioned(
+            top: -20,
+            right: -40,
+            child: Container(
+              width: 180,
+              height: 180,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    kPrimaryGreen.withValues(alpha: 0.08),
+                    kPrimaryGreen.withValues(alpha: 0),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: 4),
-            Text(
-              'Estate Treasury\nOverview',
-              style: GoogleFonts.outfit(
-                fontSize: 32,
-                fontWeight: FontWeight.w700,
-                letterSpacing: -0.8,
-                height: 1.1,
-                color: const Color(0xFF1E293B),
-              ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'FINANCIAL INTELLIGENCE',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.5,
+                    color: kPrimaryGreen.withValues(alpha: 0.8),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Estate Treasury\nOverview',
+                  style: GoogleFonts.outfit(
+                    fontSize: 34,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -1.2,
+                    height: 1.0,
+                    color: const Color(0xFF1E293B),
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ).animate().fade().slideY(begin: 0.1),
     );
   }

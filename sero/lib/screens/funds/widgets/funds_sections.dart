@@ -4,7 +4,8 @@ import '../../../app/theme.dart';
 import '../../../models/fund.dart';
 
 class OverdueSection extends StatelessWidget {
-  const OverdueSection({super.key});
+  final List<OverdueResident> overdueList;
+  const OverdueSection({super.key, required this.overdueList});
 
   @override
   Widget build(BuildContext context) {
@@ -40,40 +41,49 @@ class OverdueSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 24),
-          const _OverdueItem(
-            name: 'Sebastian Vale',
-            unit: 'Unit 402-B • 2 months',
-            amount: '₹1,250',
-            img: '1',
-          ),
-          const _OverdueItem(
-            name: 'Elara Vance',
-            unit: 'Unit 112-A • 1 month',
-            amount: '₹625',
-            img: '2',
-          ),
-          const _OverdueItem(
-            name: 'Julian Thorne',
-            unit: 'Penthouse 2 • 3 months',
-            amount: '₹4,800',
-            img: '3',
-          ),
-          const _OverdueItem(
-            name: 'Marcella Reed',
-            unit: 'Unit 805-C • 1 month',
-            amount: '₹625',
-            img: '4',
-          ),
+          if (overdueList.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: Column(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: kPrimaryGreen, size: 36),
+                    const SizedBox(height: 12),
+                    Text(
+                      'All entries cleared!',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF1E293B),
+                      ),
+                    ),
+                    Text(
+                      'No overdue payments found.',
+                      style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else
+            ...overdueList.take(5).map((resident) => _OverdueItem(
+              name: resident.name,
+              unit: resident.unitInfo,
+              amount: '₹${resident.amountOwed.toStringAsFixed(0)}',
+              img: resident.uid,
+            )),
           const SizedBox(height: 24),
-          ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFFDBEAFE),
-              foregroundColor: const Color(0xFF1E40AF),
-              minimumSize: const Size(double.infinity, 48),
-              elevation: 0,
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {},
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFDBEAFE),
+                foregroundColor: const Color(0xFF1E40AF),
+                minimumSize: const Size(64, 48),
+                elevation: 0,
+              ),
+              child: const Text('Send Mass Reminders'),
             ),
-            child: const Text('Send Mass Reminders'),
           ),
         ],
       ),
@@ -139,10 +149,12 @@ class _OverdueItem extends StatelessWidget {
 class DisbursementsSection extends StatelessWidget {
   final List<FundTransaction> transactions;
   final VoidCallback onSmartScan;
+  final VoidCallback onManualLog;
   const DisbursementsSection({
     super.key,
     required this.transactions,
     required this.onSmartScan,
+    required this.onManualLog,
   });
 
   @override
@@ -154,93 +166,92 @@ class DisbursementsSection extends StatelessWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Recent',
-                    style: GoogleFonts.outfit(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  Text(
-                    'Disbursements',
-                    style: GoogleFonts.outfit(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFF1E293B),
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Authorized expenses for the month',
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      color: const Color(0xFF64748B),
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-              GestureDetector(
-                onTap: onSmartScan,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE2E8F0),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.auto_awesome,
-                        color: kPrimaryGreen,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Smart\nScan',
-                        style: GoogleFonts.outfit(
-                          color: kPrimaryGreen,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          height: 1.1,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF334155),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Row(
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Icon(Icons.add, color: Colors.white, size: 20),
-                    const SizedBox(width: 8),
                     Text(
-                      'Log New\nExpense',
+                      'Society Expenditures',
                       style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 26,
+                        fontWeight: FontWeight.w700,
+                        color: const Color(0xFF1E293B),
                         height: 1.1,
                       ),
                     ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Verified outflows for the current term',
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        color: const Color(0xFF64748B),
+                      ),
+                    ),
                   ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onSmartScan,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFE2E8F0)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.auto_awesome, color: kPrimaryGreen, size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Smart Scan',
+                          style: GoogleFonts.outfit(
+                            color: kPrimaryGreen,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onManualLog,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF6FF),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: const Color(0xFFDBEAFE)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(Icons.add_rounded, color: Color(0xFF1E40AF), size: 20),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Log New',
+                          style: GoogleFonts.outfit(
+                            color: Colors.white.withValues(alpha: 0.7),
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

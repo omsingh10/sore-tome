@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../providers/issues_provider.dart';
 import '../../app/theme.dart';
-import '../../models/issue.dart';
-import '../../services/firestore_service.dart';
 
-class PostIssueScreen extends StatefulWidget {
+class PostIssueScreen extends ConsumerStatefulWidget {
   const PostIssueScreen({super.key});
 
   @override
-  State<PostIssueScreen> createState() => _PostIssueScreenState();
+  ConsumerState<PostIssueScreen> createState() => _PostIssueScreenState();
 }
 
-class _PostIssueScreenState extends State<PostIssueScreen> {
+class _PostIssueScreenState extends ConsumerState<PostIssueScreen> {
   final _titleCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   bool _loading = false;
@@ -28,18 +28,23 @@ class _PostIssueScreenState extends State<PostIssueScreen> {
   void _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
-    final issue = Issue(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      title: _titleCtrl.text.trim(),
-      description: _descCtrl.text.trim(),
-      postedBy: 'Rahul',
-      createdAt: DateTime.now(),
-      status: 'open',
-    );
-    await FirestoreService().postIssue(issue);
-    setState(() => _loading = false);
-    if (!mounted) return;
-    Navigator.pop(context);
+    
+    try {
+      await ref.read(issuesProvider.notifier).addIssue(
+        _titleCtrl.text.trim(),
+        _descCtrl.text.trim(),
+        'other', // Default category for now
+      );
+      if (!mounted) return;
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override

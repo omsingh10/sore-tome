@@ -4,9 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../app/theme.dart';
 import '../../providers/ai_provider.dart';
+import '../../providers/rules_provider.dart';
 
 // Modularized Widgets
 import 'widgets/rules_widgets.dart';
+import '../../services/pdf_service.dart';
+import 'package:printing/printing.dart';
 
 class RulesScreen extends ConsumerStatefulWidget {
   const RulesScreen({super.key});
@@ -16,7 +19,6 @@ class RulesScreen extends ConsumerStatefulWidget {
 }
 
 class _RulesScreenState extends ConsumerState<RulesScreen> {
-  final TextEditingController _searchCtrl = TextEditingController();
   String _selectedCategory = 'General Conduct';
 
   final List<String> _categories = [
@@ -27,10 +29,157 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
     'Waste & Eco',
   ];
 
-  @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
+  void _showDraftRuleDialog(BuildContext context) {
+    final titleCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text(
+          'Quick Draft Protocol',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.w700),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: titleCtrl,
+              decoration: InputDecoration(
+                hintText: 'Protocol Title (e.g. Quiet Hours)',
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: contentCtrl,
+              maxLines: 4,
+              decoration: InputDecoration(
+                hintText: 'Detailed content and enforcement details...',
+                filled: true,
+                fillColor: const Color(0xFFF8FAFC),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel', style: GoogleFonts.outfit(color: const Color(0xFF64748B))),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimaryGreen,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            onPressed: () async {
+              if (titleCtrl.text.isEmpty || contentCtrl.text.isEmpty) return;
+              try {
+                await ref.read(rulesProvider.notifier).addRule(
+                  titleCtrl.text,
+                  contentCtrl.text,
+                  'general',
+                );
+                if (!context.mounted) return;
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Protocol drafted successfully')),
+                );
+              } catch (e) {
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed: $e')),
+                );
+              }
+            },
+            child: Text('Post Rule', style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _handleExportPdf(BuildContext context) async {
+    final aiRules = ref.read(aiRulesProvider).value ?? [];
+    final manualRules = ref.read(rulesProvider).value ?? [];
+    final societyName = 'Elite Society Hub';
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(color: kPrimaryGreen, strokeWidth: 2),
+              const SizedBox(height: 20),
+              Text(
+                'Generating Society Charter...',
+                style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Synthesizing all active protocols into a PDF document.',
+                style: GoogleFonts.outfit(fontSize: 11, color: const Color(0xFF64748B)),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+
+    try {
+      final allRulesData = [
+        ...aiRules.map((r) => {
+          'title': 'AI Extracted Protocol',
+          'content': r['rule'],
+          'section': 'AI ASSISTED',
+        }),
+        ...manualRules.map((r) => {
+          'title': r.title,
+          'content': r.content,
+          'section': 'ADMIN DRAFT',
+        }),
+      ];
+
+      final pdfBytes = await PdfService.generateBylaws(
+        societyName: societyName,
+        rules: allRulesData,
+      );
+
+      if (context.mounted) Navigator.pop(context);
+
+      await Printing.sharePdf(
+        bytes: pdfBytes,
+        filename: 'society_bylaws_${DateFormat('yyyy-MM-dd').format(DateTime.now())}.pdf',
+      );
+    } catch (e) {
+      if (context.mounted) Navigator.pop(context);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Export failed: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -38,126 +187,53 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
-          const BrandingHeader(),
-          HeroHeader(onRefresh: () => ref.invalidate(aiRulesProvider)),
-          GovernanceSearchBar(controller: _searchCtrl),
-
+          // ─── Header Section ──────────────────────────────────────────────
           SliverToBoxAdapter(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
-              child: IntrinsicHeight(
-                child: Row(
-                  children: [
-                    const MetricCard(
-                      title: '42 Active',
-                      subtitle: 'Rules currently in enforcement',
-                      icon: Icons.gavel_rounded,
-                      color: Color(0xFFBFDBFE),
-                      iconColor: Color(0xFF1E40AF),
-                    ),
-                    const SizedBox(width: 12),
-                    const MetricCard(
-                      title: '3 Pending',
-                      subtitle: 'Clauses awaiting committee review',
-                      icon: Icons.update_rounded,
-                      color: Colors.white,
-                      iconColor: Color(0xFF64748B),
-                      badgeText: 'UPDATED',
-                    ),
-                    const SizedBox(width: 12),
-                    const MetricCard(
-                      title: 'Draft New Rule',
-                      subtitle: 'Create a new society protocol',
-                      icon: Icons.add_rounded,
-                      color: Colors.white,
-                      iconColor: Color(0xFF64748B),
-                      isCenter: true,
-                    ),
-                  ],
-                ),
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const BrandingHeaderWidget(),
+                HeroHeaderWidget(onRefresh: () {
+                  ref.invalidate(aiRulesProvider);
+                  ref.invalidate(rulesProvider);
+                  ref.invalidate(aiJobsProvider);
+                }),
+              ],
             ),
           ),
 
+          // ─── Horizontal Metrics Bar ──────────────────────────────────────────
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 32, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'CATEGORIES',
-                    style: GoogleFonts.outfit(
-                      color: const Color(0xFF64748B),
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Column(
-                    children: _categories.map((cat) {
-                      final isSelected = _selectedCategory == cat;
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedCategory = cat),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          margin: const EdgeInsets.only(bottom: 4),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? const Color(0xFFF1F5F9)
-                                : Colors.transparent,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                cat,
-                                style: GoogleFonts.outfit(
-                                  fontSize: 13,
-                                  fontWeight: isSelected
-                                      ? FontWeight.w600
-                                      : FontWeight.w500,
-                                  color: isSelected
-                                      ? const Color(0xFF1E293B)
-                                      : const Color(0xFF64748B),
-                                ),
-                              ),
-                              if (isSelected)
-                                const Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 16,
-                                  color: Color(0xFF94A3B8),
-                                ),
-                            ],
-                          ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                ],
-              ),
+            child: GovernanceMetricsBar(
+              onDraftTap: () => _showDraftRuleDialog(context),
             ),
           ),
 
-          const ExportBylawsCard(),
+          // ─── Category Selection ──────────────────────────────────────────────
+          SliverToBoxAdapter(
+            child: GovernanceCategorySelector(
+              categories: _categories,
+              selectedCategory: _selectedCategory,
+              onCategorySelected: (cat) => setState(() => _selectedCategory = cat),
+            ),
+          ),
 
+          // ─── Export Action Card ─────────────────────────────────────────────
+          ExportBylawsCard(onTap: () => _handleExportPdf(context)),
+
+          // ─── Protocols Title & View Options ──────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 40, 20, 16),
+              padding: const EdgeInsets.fromLTRB(20, 32, 20, 20),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
                     '$_selectedCategory Protocols',
                     style: GoogleFonts.outfit(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.w700,
                       color: const Color(0xFF0F172A),
                     ),
@@ -165,17 +241,18 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
                   Row(
                     children: [
                       Text(
-                        'Sort by: Recently Added',
+                        'View: List',
                         style: GoogleFonts.outfit(
                           fontSize: 11,
-                          color: const Color(0xFF64748B),
-                          fontWeight: FontWeight.w500,
+                          color: const Color(0xFF94A3B8),
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
+                      const SizedBox(width: 4),
                       const Icon(
                         Icons.keyboard_arrow_down_rounded,
                         size: 14,
-                        color: Color(0xFF64748B),
+                        color: Color(0xFF94A3B8),
                       ),
                     ],
                   ),
@@ -184,48 +261,10 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
             ),
           ),
 
-          ref.watch(aiRulesProvider).when(
-            data: (rules) {
-              if (rules.isEmpty) {
-                return const SliverFillRemaining(
-                  child: Center(child: Text('No AI-extracted rules found.')),
-                );
-              }
-              
-              final filtered = rules.where((r) => 
-                r['rule'].toString().toLowerCase().contains(_searchCtrl.text.toLowerCase())
-              ).toList();
+          // ─── Unified Rules List (AI + Manual) ─────────────────────────────────
+          GovernanceRulesListView(selectedCategory: _selectedCategory),
 
-              return SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final rule = filtered[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 20),
-                      child: RuleSheetCard(
-                        title: 'Society Protocol',
-                        section: 'AI V3.10 CLS',
-                        lastUpdated: rule['date'] != null 
-                          ? DateFormat('MMM dd, yyyy').format(DateTime.parse(rule['date']))
-                          : 'Recent Knowledge Extraction',
-                        content: rule['rule'],
-                        penalty: 'Subject to committee sanctions as per standard bylaws.',
-                      ),
-                    );
-                  }, childCount: filtered.length),
-                ),
-              );
-            },
-            loading: () => const SliverFillRemaining(
-              child: Center(child: CircularProgressIndicator(color: kPrimaryGreen)),
-            ),
-            error: (e, stack) => SliverFillRemaining(
-              child: Center(child: Text('Extraction failed: $e')),
-            ),
-          ),
-
-          const SliverToBoxAdapter(child: SizedBox(height: 120)),
+          const SliverToBoxAdapter(child: SizedBox(height: 60)),
         ],
       ),
     );

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, mainAdminOnly } = require("../middleware/auth");
+const { AuditLogService } = require("../src/services/AuditLogService");
 
 // POST /users/register — called after Firebase phone OTP success
 // Flutter sends this after first login to save user profile in Firestore
@@ -85,6 +86,13 @@ router.patch("/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
     if (role) {
       await admin.auth().setCustomUserClaims(req.params.uid, { role });
     }
+
+    // Log the action for administrative accountability
+    await AuditLogService.getInstance().logAdminAction(
+      req.user,
+      "Resident Updated",
+      `Modified details for User ID: ${req.params.uid}. Fields: ${Object.keys(req.body).join(", ")}`
+    );
 
     res.json({ message: "User updated successfully" });
   } catch (err) {

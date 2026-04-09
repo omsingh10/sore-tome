@@ -88,16 +88,6 @@ class FloatingInputConsole extends StatelessWidget {
                   ),
                 ).animate().fade().scale(),
               ),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: const [
-                  SuggestionChip(label: 'Identify non-payers'),
-                  SuggestionChip(label: 'Security status'),
-                  SuggestionChip(label: 'Utility report'),
-                ],
-              ),
-            ),
             const SizedBox(height: 12),
             Row(
               children: [

@@ -4,7 +4,7 @@ import '../services/api_service.dart';
 import '../models/fund.dart';
 
 final fundsProvider = StateNotifierProvider<FundsNotifier, AsyncValue<List<FundTransaction>>>((ref) {
-  return FundsNotifier();
+  return FundsNotifier(ref);
 });
 
 final fundSummaryProvider = FutureProvider<FundSummary>((ref) async {
@@ -20,7 +20,8 @@ final fundSummaryProvider = FutureProvider<FundSummary>((ref) async {
 });
 
 class FundsNotifier extends StateNotifier<AsyncValue<List<FundTransaction>>> {
-  FundsNotifier() : super(const AsyncValue.loading()) {
+  final Ref ref;
+  FundsNotifier(this.ref) : super(const AsyncValue.loading()) {
     fetchTransactions();
   }
 
@@ -45,6 +46,24 @@ class FundsNotifier extends StateNotifier<AsyncValue<List<FundTransaction>>> {
       }
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+    }
+  }
+
+  Future<void> updateSettings({double? target, String? currency}) async {
+    try {
+      final res = await ApiService.post('/funds/settings', {
+        if (target != null) 'target': target,
+        if (currency != null) 'currency': currency,
+      });
+
+      if (res.statusCode == 200) {
+        // Refresh summary after update
+        ref.invalidate(fundSummaryProvider);
+      } else {
+        throw jsonDecode(res.body)['error'] ?? 'Failed to update settings';
+      }
+    } catch (e) {
+      rethrow;
     }
   }
 }

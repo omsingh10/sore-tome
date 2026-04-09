@@ -1,6 +1,18 @@
 const Sentry = require("@sentry/node");
 const { logger } = require("./src/shared/Logger");
 
+// ─── Suppress pg-connection-string SSL deprecation warning ────────────────────
+// The 'sslmode=require' alias warning is informational — it does not affect
+// connection behaviour. This will become relevant only in pg v9 / pg-conn-str v3.
+// Remove this block once those versions are adopted and the URL updated.
+process.on('warning', (warning) => {
+  if (warning.name === 'Warning' && warning.message && warning.message.includes('sslmode')) {
+    return; // suppress pg SSL alias noise
+  }
+  // Re-emit all other warnings normally
+  console.warn(warning.name, warning.message);
+});
+
 // ─── Init Sentry ─────────────────────────────────────────────────────────────
 Sentry.init({
   dsn: process.env.SENTRY_DSN,
@@ -37,7 +49,10 @@ app.use("/funds", require("./routes/funds"));
 app.use("/rules", require("./routes/rules"));
 app.use("/events", require("./routes/events"));
 app.use("/ai", require("./src/routes/ai").default);
+app.use("/admin", require("./src/routes/admin_dashboard").default);
+app.use("/admin", require("./src/routes/admin_access").default);
 app.use("/channels", require("./routes/channels"));
+app.use("/admin", require("./routes/admin_flags"));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get("/health", (req, res) => {
@@ -59,7 +74,7 @@ app.use((err, req, res, next) => {
 });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`\n🏘️  Society Backend running on port ${PORT}`);
   console.log(`📋 Routes: /users /notices /issues /funds /rules /events /ai`);

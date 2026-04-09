@@ -28,6 +28,8 @@ class IssuesNotifier extends StateNotifier<AsyncValue<List<Issue>>> {
     }
   }
 
+  Future<void> refresh() => fetchIssues();
+
   Future<void> addIssue(String title, String description, String category) async {
     try {
       final res = await ApiService.post('/issues', {
@@ -39,6 +41,45 @@ class IssuesNotifier extends StateNotifier<AsyncValue<List<Issue>>> {
         fetchIssues();
       } else {
         throw jsonDecode(res.body)['error'] ?? 'Failed to report issue';
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> resolveIssue(String id) async {
+    try {
+      final res = await ApiService.patch('/issues/$id', {'status': 'resolved'});
+      if (res.statusCode == 200) {
+        fetchIssues();
+      } else {
+        throw jsonDecode(res.body)['error'] ?? 'Failed to resolve issue';
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> assignIssue(String id, String assignee) async {
+    try {
+      final res = await ApiService.patch('/issues/$id', {'assignedTo': assignee, 'status': 'in_progress'});
+      if (res.statusCode == 200) {
+        fetchIssues();
+      } else {
+        throw jsonDecode(res.body)['error'] ?? 'Failed to assign issue';
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> deleteIssue(String id) async {
+    try {
+      final res = await ApiService.delete('/issues/$id');
+      if (res.statusCode == 200) {
+        fetchIssues();
+      } else {
+        throw jsonDecode(res.body)['error'] ?? 'Failed to delete issue';
       }
     } catch (e) {
       rethrow;

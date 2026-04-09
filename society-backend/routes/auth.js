@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, adminOnly, mainAdminOnly } = require("../middleware/auth");
+const { AuditLogService } = require("../src/services/AuditLogService");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "30d";
@@ -115,7 +116,13 @@ router.post("/login", async (req, res) => {
         }
 
         const token = jwt.sign(
-            { uid: userDoc.id, phone: user.phone, role: user.role, name: user.name },
+            { 
+                uid: userDoc.id, 
+                phone: user.phone, 
+                role: user.role, 
+                name: user.name,
+                society_id: user.society_id || "main_society" 
+            },
             JWT_SECRET,
             { expiresIn: JWT_EXPIRES_IN }
         );
@@ -180,6 +187,13 @@ router.post("/approve/:uid", authMiddleware, mainAdminOnly, async (req, res) => 
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
         });
 
+        // Log the action
+        await AuditLogService.getInstance().logAdminAction(
+            req.user,
+            "User Approved",
+            `Approved ${userData.name} (Flat ${userData.flatNumber})`
+        );
+
         res.json({ message: `${userData.name} has been approved and notified.` });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -217,6 +231,13 @@ router.post("/reject/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
             read: false,
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
         });
+
+        // Log the action
+        await AuditLogService.getInstance().logAdminAction(
+            req.user,
+            "User Rejected",
+            `Rejected ${userData.name} (Flat ${userData.flatNumber}). Reason: ${reason || 'Not specified'}`
+        );
 
         res.json({ message: `${userData.name}'s registration has been rejected.` });
     } catch (err) {

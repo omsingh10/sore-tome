@@ -124,10 +124,28 @@ ThemeData appTheme() {
         backgroundColor: kPrimaryGreen,
         foregroundColor: Colors.white,
         elevation: 0,
-        minimumSize: const Size(double.infinity, 56),
+        minimumSize: const Size(64, 56),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         textStyle: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w600),
       ),
     ),
   );
 }
+
+// Custom FAB location to stay above the floating pill navbar (~80px offset)
+class PillNavbarFabLocation extends FloatingActionButtonLocation {
+  const PillNavbarFabLocation();
+
+  @override
+  Offset getOffset(ScaffoldPrelayoutGeometry scaffoldGeometry) {
+    // Standard endFloat offset
+    final double x = FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry).dx;
+    final double y = FloatingActionButtonLocation.endFloat.getOffset(scaffoldGeometry).dy - 80.0;
+    return Offset(x, y);
+  }
+
+  @override
+  String toString() => 'FloatingActionButtonLocation.pillNavbarFab';
+}
+
+const kPillNavbarFabLocation = PillNavbarFabLocation();

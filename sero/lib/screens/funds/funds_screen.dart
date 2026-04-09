@@ -9,8 +9,12 @@ import '../../services/firestore_service.dart';
 import '../../services/api_service.dart';
 import '../ai_chat/ai_chat_screen.dart';
 
+import 'package:flutter_animate/flutter_animate.dart';
+
 // Modularized Widgets
-import 'widgets/funds_widgets.dart';
+import 'widgets/funds_header.dart';
+import 'widgets/funds_metrics.dart';
+import 'widgets/funds_sections.dart';
 
 class FundsScreen extends StatefulWidget {
   const FundsScreen({super.key});
@@ -23,6 +27,7 @@ class _FundsScreenState extends State<FundsScreen> {
   final _service = FirestoreService();
   FundSummary? _summary;
   List<FundTransaction> _transactions = [];
+  List<OverdueResident> _overdueList = [];
   bool _loading = true;
 
   @override
@@ -34,10 +39,13 @@ class _FundsScreenState extends State<FundsScreen> {
   Future<void> _load() async {
     final summary = await _service.getFundSummary();
     final tx = await _service.getTransactions();
+    final overdue = await _service.getOverdueResidents();
+    
     if (!mounted) return;
     setState(() {
       _summary = summary;
       _transactions = tx;
+      _overdueList = overdue;
       _loading = false;
     });
   }
@@ -137,45 +145,74 @@ class _FundsScreenState extends State<FundsScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
+                  // Featured Hero Metric
                   FinancialCard(
                     title: 'Total Collections',
-                    amount: '₹${_summary?.totalCollected.toStringAsFixed(2) ?? "0.00"}',
-                    trend: '12.5% vs last month',
+                    amount: '₹${_summary?.totalCollected.toStringAsFixed(0) ?? "0"}',
+                    trend: 'Society Revenue',
                     icon: Icons.account_balance_wallet_rounded,
                     isPositive: true,
-                  ),
+                    isHero: true,
+                  ), // Animation removed per request
+                  
                   const SizedBox(height: 16),
-                  const FinancialCard(
-                    title: 'Outstanding Dues',
-                    amount: '₹12,840.00',
-                    trend: '14 Residents with overdue payments',
-                    icon: Icons.assignment_late_rounded,
-                    isNeutral: true,
-                  ),
-                  const SizedBox(height: 16),
-                  FinancialCard(
-                    title: 'Recent Expenses',
-                    amount: '₹${_summary?.totalSpent.toStringAsFixed(2) ?? "0.00"}',
-                    trend: 'Maintenance, Security, & Landscaping',
-                    icon: Icons.receipt_long_rounded,
-                    isNeutral: true,
-                  ),
+                  
+                  // Secondary Metrics Grid Row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FinancialCard(
+                          title: 'Overdue',
+                          amount: '₹${(_summary?.outstandingDues ?? 0).toStringAsFixed(0)}',
+                          trend: '${_summary?.overdueCount ?? 0} residents',
+                          icon: Icons.assignment_late_rounded,
+                          isNeutral: true,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: FinancialCard(
+                          title: 'Expenses',
+                          amount: '₹${_summary?.totalSpent.toStringAsFixed(0) ?? "0"}',
+                          trend: 'Last 30 days',
+                          icon: Icons.receipt_long_rounded,
+                          isNeutral: true,
+                        ),
+                      ),
+                    ],
+                  ).animate().fade().slideY(begin: 0.2, delay: 200.ms),
                   const SizedBox(height: 24),
                 ]),
               ),
             ),
-            const SliverToBoxAdapter(child: CashflowChart()),
-            const SliverToBoxAdapter(child: OverdueSection()),
             SliverToBoxAdapter(
-              child: DisbursementsSection(
-                transactions: _transactions,
-                onSmartScan: _smartScan,
+              child: SpendingBreakdownCard(
+                breakdown: _summary?.categoryBreakdown ?? {},
+                totalSpent: _summary?.totalSpent ?? 0,
               ),
             ),
-            const SliverToBoxAdapter(child: SizedBox(height: 120)),
+            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            SliverToBoxAdapter(
+              child: OverdueSection(overdueList: _overdueList),
+            ),
+            SliverToBoxAdapter(
+              child: StreamBuilder<List<FundTransaction>>(
+                stream: _service.getTransactionsStream(),
+                initialData: _transactions, 
+                builder: (context, snapshot) {
+                  return DisbursementsSection(
+                    transactions: snapshot.data ?? [],
+                    onSmartScan: _smartScan,
+                    onManualLog: () => _showExtractionResult({}), // Open empty form
+                  );
+                },
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: 160)),
           ],
         ),
       ),
+      floatingActionButtonLocation: kPillNavbarFabLocation,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -330,35 +367,38 @@ class _ExtractionFormState extends State<ExtractionForm> {
                 child: Center(child: Text('⚠️ Are you sure? This is a significant amount.', style: GoogleFonts.outfit(fontSize: 13, color: Colors.blue.shade900, fontWeight: FontWeight.w600))),
               ),
 
-            ElevatedButton(
-              onPressed: isExpired ? null : () {
-                if (needsDoubleConfirm && !_doubleConfirm) {
-                  setState(() => _doubleConfirm = true);
-                  return;
-                }
-                
-                final tx = FundTransaction(
-                  id: '', 
-                  title: _vendorController.text,
-                  description: _noteController.text,
-                  amount: -1 * (double.tryParse(_amountController.text) ?? 0.0),
-                  date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
-                  category: _category,
-                );
-                
-                widget.onConfirm(tx);
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: _doubleConfirm ? Colors.blue.shade700 : kPrimaryGreen,
-                disabledBackgroundColor: Colors.grey.shade300,
-                minimumSize: const Size(double.infinity, 56),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                elevation: 0,
-              ),
-              child: Text(
-                isExpired ? 'EXPIRED' : (_doubleConfirm ? 'YES, CONFIRM & SAVE' : '✅ CONFIRM & SAVE'), 
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: isExpired ? null : () {
+                  if (needsDoubleConfirm && !_doubleConfirm) {
+                    setState(() => _doubleConfirm = true);
+                    return;
+                  }
+                  
+                  final tx = FundTransaction(
+                    id: '', 
+                    title: _vendorController.text,
+                    description: _noteController.text,
+                    amount: -1 * (double.tryParse(_amountController.text) ?? 0.0),
+                    date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
+                    category: _category,
+                  );
+                  
+                  widget.onConfirm(tx);
+                  Navigator.pop(context);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _doubleConfirm ? Colors.blue.shade700 : kPrimaryGreen,
+                  disabledBackgroundColor: Colors.grey.shade300,
+                  minimumSize: const Size(64, 56),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  elevation: 0,
+                ),
+                child: Text(
+                  isExpired ? 'EXPIRED' : (_doubleConfirm ? 'YES, CONFIRM & SAVE' : '✅ CONFIRM & SAVE'), 
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1),
+                ),
               ),
             ),
             const SizedBox(height: 32),

@@ -23,7 +23,7 @@ class ChannelsListScreen extends ConsumerWidget {
               subtitle: Text(ch.description),
               onTap: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => ChannelChatScreen(channelId: ch.id, channelName: ch.name)),
+                MaterialPageRoute(builder: (_) => ChannelChatScreen(channel: ch)),
               ),
             );
           },
