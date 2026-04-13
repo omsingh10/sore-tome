@@ -1,7 +1,7 @@
 import 'dart:convert';
-import '../models/notice.dart';
-import '../models/issue.dart';
-import '../models/fund.dart';
+import 'package:sero/models/notice.dart';
+import 'package:sero/models/issue.dart';
+import 'package:sero/models/fund.dart';
 import 'api_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -142,3 +142,5 @@ class FirestoreService {
         });
   }
 }
+
+

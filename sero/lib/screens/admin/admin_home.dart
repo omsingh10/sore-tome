@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import '../../app/theme.dart';
-import '../../models/issue.dart';
-import '../../services/firestore_service.dart';
-import '../../widgets/issue_card.dart';
+import 'package:sero/app/theme.dart';
+import 'package:sero/models/issue.dart';
+import 'package:sero/services/firestore_service.dart';
+import 'package:sero/widgets/admin/issue_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../providers/ai_provider.dart';
+import 'package:sero/providers/shared/ai_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AdminHome extends ConsumerStatefulWidget {
@@ -294,3 +294,9 @@ class _AdminStatCard extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+

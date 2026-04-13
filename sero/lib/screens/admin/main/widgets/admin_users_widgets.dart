@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../models/user.dart';
-import '../../../../widgets/brand_logo.dart';
+import 'package:sero/models/user.dart';
+import 'package:sero/widgets/shared/brand_logo.dart';
 
 class AdminHeader extends StatelessWidget {
   final String category;
@@ -424,3 +424,10 @@ class ResidentCard extends StatelessWidget {
     ).animate().fade(delay: (index * 50).ms).slideY(begin: 0.1, end: 0);
   }
 }
+
+
+
+
+
+
+

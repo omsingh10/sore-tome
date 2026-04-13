@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../app/theme.dart';
-import '../../models/issue.dart';
-import '../../services/firestore_service.dart';
-import '../../widgets/issue_card.dart';
+import 'package:sero/app/theme.dart';
+import 'package:sero/models/issue.dart';
+import 'package:sero/services/firestore_service.dart';
+import 'package:sero/widgets/admin/issue_card.dart';
 
 class ManageIssuesScreen extends StatefulWidget {
   const ManageIssuesScreen({super.key});
@@ -80,3 +80,9 @@ class _ManageIssuesScreenState extends State<ManageIssuesScreen> {
     );
   }
 }
+
+
+
+
+
+

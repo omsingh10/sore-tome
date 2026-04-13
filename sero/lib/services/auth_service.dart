@@ -119,3 +119,5 @@ class AuthService {
     throw data['error'] ?? 'Failed to load notifications';
   }
 }
+
+

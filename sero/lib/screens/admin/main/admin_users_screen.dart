@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../../providers/users_provider.dart';
-import '../../../../models/user.dart';
+import 'package:sero/providers/admin/users_provider.dart';
+import 'package:sero/models/user.dart';
 
 // Modularized Widgets
 import 'widgets/admin_users_widgets.dart';
@@ -257,3 +257,10 @@ class _AllUsersTab extends ConsumerWidget {
     );
   }
 }
+
+
+
+
+
+
+

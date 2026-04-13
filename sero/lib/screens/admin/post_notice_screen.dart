@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../../app/theme.dart';
-import '../../services/firestore_service.dart';
-import '../../models/notice.dart';
+import 'package:sero/app/theme.dart';
+import 'package:sero/services/firestore_service.dart';
+import 'package:sero/models/notice.dart';
 
 class PostNoticeScreen extends StatefulWidget {
   const PostNoticeScreen({super.key});
@@ -137,3 +137,9 @@ class _PostNoticeScreenState extends State<PostNoticeScreen> {
     );
   }
 }
+
+
+
+
+
+

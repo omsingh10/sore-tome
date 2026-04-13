@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../../app/theme.dart';
-import '../../../services/api_service.dart';
-import '../../ai_chat/ai_chat_screen.dart';
-import '../../../services/auth_service.dart';
+import 'package:sero/app/theme.dart';
+import 'package:sero/services/api_service.dart';
+import '../../shared/ai_chat/ai_chat_screen.dart';
+import 'package:sero/services/auth_service.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
@@ -275,3 +275,12 @@ class _AdminAIScreenState extends State<AdminAIScreen> {
     );
   }
 }
+
+
+
+
+
+
+
+
+

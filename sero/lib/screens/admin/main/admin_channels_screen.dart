@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../providers/channels_provider.dart';
-import '../../channels/channel_chat_screen.dart';
+import 'package:sero/providers/shared/channels_provider.dart';
+import '../../shared/channels/channel_chat_screen.dart';
+import 'package:sero/widgets/shared/branding_header.dart';
 
 // Modularized Widgets
 import 'widgets/admin_channels_widgets.dart';
@@ -95,3 +96,12 @@ class AdminChannelsScreen extends ConsumerWidget {
     );
   }
 }
+
+
+
+
+
+
+
+
+

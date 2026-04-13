@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../../../app/theme.dart';
+import 'package:sero/app/theme.dart';
 
 class KnowledgeBasePolicyBanner extends StatelessWidget {
   const KnowledgeBasePolicyBanner({super.key});
@@ -50,3 +50,10 @@ class KnowledgeBasePolicyBanner extends StatelessWidget {
     );
   }
 }
+
+
+
+
+
+
+

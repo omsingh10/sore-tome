@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../../models/audit_log.dart';
-import '../../../providers/audit_provider.dart';
-import '../../../app/theme.dart';
+import 'package:sero/models/audit_log.dart';
+import 'package:sero/providers/admin/audit_provider.dart';
+import 'package:sero/app/theme.dart';
 
 class AdminAccessLogsScreen extends ConsumerStatefulWidget {
   const AdminAccessLogsScreen({super.key});
@@ -300,3 +300,10 @@ class _AuditLogItem extends StatelessWidget {
     }
   }
 }
+
+
+
+
+
+
+

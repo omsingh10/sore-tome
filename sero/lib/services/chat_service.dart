@@ -1,5 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../providers/channels_provider.dart';
+import 'package:sero/providers/shared/channels_provider.dart';
 import 'monitor_service.dart';
 import 'api_service.dart';
 
@@ -73,3 +73,5 @@ class ChatService {
 }
 
 final chatServiceProvider = Provider((ref) => ChatService(ref));
+
+

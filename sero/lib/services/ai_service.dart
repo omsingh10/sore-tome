@@ -70,3 +70,5 @@ class AiService {
 
   void clearHistory() => _history.clear();
 }
+
+

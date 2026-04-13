@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'main_shell.dart';
-import '../screens/auth/login_screen.dart';
-import '../screens/auth/register_screen.dart';
-import '../screens/issues/post_issue_screen.dart';
+import '../screens/shared/auth/login_screen.dart';
+import '../screens/shared/auth/register_screen.dart';
+import '../screens/resident/issues/post_issue_screen.dart';
 import '../screens/admin/post_notice_screen.dart';
 import '../screens/admin/manage_issues_screen.dart';
-import '../screens/splash_screen.dart';
-import '../widgets/auth_guard.dart'; // [NEW] Added for screen-level authorization
+import '../screens/shared/splash_screen.dart';
+import 'package:sero/widgets/shared/auth_guard.dart';
 
 class SocietyApp extends StatelessWidget {
   const SocietyApp({super.key});
@@ -43,5 +43,8 @@ class SocietyApp extends StatelessWidget {
     );
   }
 }
+
+
+
 
 

@@ -93,3 +93,9 @@ class ChannelPremiumCard extends StatelessWidget {
 // ModeratorsCard removed - moved to Hub Intelligence settings list
 
 // NewChannelCTA removed - replaced by compact header action button
+
+
+
+
+
+

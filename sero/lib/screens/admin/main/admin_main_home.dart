@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../providers/dashboard_provider.dart';
-import '../../../../providers/funds_provider.dart';
-import '../../../../providers/channels_provider.dart';
+import 'package:sero/providers/admin/dashboard_provider.dart';
+import 'package:sero/providers/shared/funds_provider.dart';
+import 'package:sero/providers/shared/channels_provider.dart';
 import 'admin_users_screen.dart';
 import 'admin_maintenance_screen.dart';
 import 'admin_access_logs_screen.dart';
@@ -495,3 +495,10 @@ class AdminMainHome extends ConsumerWidget {
     );
   }
 }
+
+
+
+
+
+
+

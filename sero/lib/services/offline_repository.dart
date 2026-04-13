@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
-import '../providers/channels_provider.dart';
+import 'package:sero/providers/shared/channels_provider.dart';
 
 class OfflineRepository {
   static Database? _database;
@@ -132,3 +132,5 @@ class OfflineRepository {
     );
   }
 }
+
+
