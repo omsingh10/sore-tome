@@ -1,5 +1,6 @@
 import { Queue, Worker } from "bullmq";
 import { redis } from "../shared/Redis";
+// @ts-ignore
 import { getDb, getStorage } from "../../config/firebase";
 import { logger } from "../shared/Logger";
 
@@ -20,7 +21,7 @@ export const cleanupWorker = new Worker(
           // Cleanup notifications and sessions associated with a deleted user
           const notifSnap = await db.collection("notifications").where("userId", "==", payload.uid).get();
           const batch = db.batch();
-          notifSnap.docs.forEach((doc) => batch.delete(doc.ref));
+          notifSnap.docs.forEach((doc: any) => batch.delete(doc.ref));
           
           await batch.commit();
           logger.info({ uid: payload.uid, count: notifSnap.size }, "Cleaned up user notifications");
