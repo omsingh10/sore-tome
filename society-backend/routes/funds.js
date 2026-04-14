@@ -1,15 +1,21 @@
 const { authMiddleware, canManageFunds } = require("../middleware/auth");
+const { tenantMiddleware } = require("../middleware/tenantMiddleware");
 const { AuditLogService } = require("../src/services/AuditLogService");
 const { logger } = require("../src/shared/Logger");
 const { validate } = require("../src/middleware/validate");
 const { CreateTransactionSchema } = require("../src/shared/schemas");
 
 // GET /funds — current month summary
-router.get("/", authMiddleware, async (req, res) => {
+router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
   const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
     const db = getDb();
-    const snap = await db.collection("funds").orderBy("createdAt", "desc").limit(12).get();
+    const snap = await db.collection("funds")
+      .where("societyId", "==", req.societyId)
+      .orderBy("createdAt", "desc")
+      .limit(12)
+      .get();
+    
     const funds = snap.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -26,15 +32,17 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 // GET /funds/transactions — recent transactions ledger
-router.get("/transactions", authMiddleware, async (req, res) => {
+router.get("/transactions", authMiddleware, tenantMiddleware, async (req, res) => {
   const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
     const db = getDb();
     const snap = await db
       .collection("transactions")
+      .where("societyId", "==", req.societyId)
       .orderBy("createdAt", "desc")
       .limit(30)
       .get();
+    
     const transactions = snap.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -51,19 +59,19 @@ router.get("/transactions", authMiddleware, async (req, res) => {
 });
 
 // POST /funds/transactions — admin only: add a transaction
-// Body: { title, amount, type, category, note, transactionId }
-router.post("/transactions", authMiddleware, canManageFunds, validate(CreateTransactionSchema), async (req, res) => {
+router.post("/transactions", authMiddleware, tenantMiddleware, canManageFunds, validate(CreateTransactionSchema), async (req, res) => {
   const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
     const { title, amount, type, note, category, transactionId } = req.body;
     const db = getDb();
     const docRef = await db.collection("transactions").add({
+      societyId: req.societyId, // MANDATORY: Multi-tenancy partition
       title,
       amount: Number(amount),
       type,
-      category: category || "Other", // V3.9: Add category
+      category: category || "Other",
       note: note || "",
-      transactionId: transactionId || null, // V3.9: Track AI/External IDs
+      transactionId: transactionId || null,
       addedBy: req.user.uid,
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });
@@ -74,13 +82,13 @@ router.post("/transactions", authMiddleware, canManageFunds, validate(CreateTran
   }
 });
 
-// GET /funds/summary — total collected, spent, balance, and target
-router.get("/summary", authMiddleware, async (req, res) => {
+// GET /funds/summary — total collected, spent, balance, and target (Filtered by societyId)
+router.get("/summary", authMiddleware, tenantMiddleware, async (req, res) => {
   try {
     const db = getDb();
     const [transSnap, settingsSnap] = await Promise.all([
-      db.collection("transactions").get(),
-      db.collection("society_settings").doc("global").get()
+      db.collection("transactions").where("societyId", "==", req.societyId).get(),
+      db.collection("society_settings").doc(req.societyId).get()
     ]);
 
     let totalCredit = 0;
@@ -101,14 +109,18 @@ router.get("/summary", authMiddleware, async (req, res) => {
     const settings = settingsSnap.exists ? settingsSnap.data() : { target: 200000, currency: "Rs", maintenanceFee: 625 };
     const maintenanceFee = settings.maintenanceFee || 625;
 
-    // AI V3.12: Live Census-based Outstanding Dues Calculation
-    const usersSnap = await db.collection("users").where("status", "==", "approved").get();
+    // AI V3.12: Live Census-based Outstanding Dues Calculation (Filtered by societyId)
+    const usersSnap = await db.collection("users")
+        .where("societyId", "==", req.societyId)
+        .where("status", "==", "approved")
+        .get();
+    
     const liableUsers = usersSnap.docs.filter(u => u.data().maintenanceExempt !== true);
     
-    // Check current month payments (V3.12: This identifies exactly who is 'outstanding')
     const now = new Date();
     const firstDayTs = getAdmin().firestore.Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), 1));
     const paidMatch = await db.collection("transactions")
+        .where("societyId", "==", req.societyId)
         .where("createdAt", ">=", firstDayTs)
         .where("category", "==", "maintenance")
         .where("type", "==", "credit")
@@ -123,10 +135,10 @@ router.get("/summary", authMiddleware, async (req, res) => {
       balance: totalCredit - totalDebit,
       target: settings.target,
       currency: settings.currency,
-      percentage: Math.round((totalCredit / settings.target) * 100),
+      percentage: Math.round((totalCredit / (settings.target || 1)) * 100),
       categoryBreakdown,
-      outstandingDues: unpaidCount * maintenanceFee, // Exact missing revenue
-      overdueCount: unpaidCount, // residents behind on payments
+      outstandingDues: unpaidCount * maintenanceFee,
+      overdueCount: unpaidCount,
       topCategories: Object.keys(categoryBreakdown).sort((a, b) => categoryBreakdown[b] - categoryBreakdown[a]).slice(0, 3).join(", ")
     });
   } catch (err) {
@@ -135,34 +147,37 @@ router.get("/summary", authMiddleware, async (req, res) => {
 });
 
 // POST /funds/settings — admin only: set society-wide financial targets
-router.post("/settings", authMiddleware, canManageFunds, async (req, res) => {
+router.post("/settings", authMiddleware, tenantMiddleware, canManageFunds, async (req, res) => {
   try {
-    const { target, currency } = req.body;
+    const { target, currency, maintenanceFee } = req.body;
     const db = getDb();
-    const settingsRef = db.collection("society_settings").doc("global");
+    const settingsRef = db.collection("society_settings").doc(req.societyId);
+    
     const updates = {};
     if (target !== undefined) updates.target = Number(target);
     if (currency) updates.currency = currency;
+    if (maintenanceFee !== undefined) updates.maintenanceFee = Number(maintenanceFee);
 
     await settingsRef.set(updates, { merge: true });
 
-    // Invalidate dashboard cache so changes reflect immediately
+    // Invalidate dashboard cache
     try {
       const IORedis = require("ioredis");
       const redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
-      const societyId = req.user.society_id || "global"; // Simplified for now
-      await redis.del(`admin:dashboard:${societyId}`);
-      await redis.del(`admin:dashboard:default_society`); // Catch-all for current dev state
+      await redis.del(`admin:dashboard:${req.societyId}`);
     } catch (e) {
       console.warn("Redis invalidation skipped:", e.message);
     }
 
-    // Log the action for administrative accountability
-    await AuditLogService.getInstance().logAdminAction(
-      req.user,
-      "Settings Updated",
-      `Updated society settings: ${Object.keys(req.body).join(", ")}`
-    );
+    await AuditLogService.getInstance().log({
+       type: 'administrative',
+       action: "Settings Updated",
+       actorId: req.user.uid,
+       actorName: req.user.name || "Admin",
+       details: `Updated society financial settings`,
+       societyId: req.societyId,
+       metadata: updates
+    });
 
     res.json({ message: "Settings updated successfully" });
   } catch (err) {
@@ -170,23 +185,24 @@ router.post("/settings", authMiddleware, canManageFunds, async (req, res) => {
   }
 });
 
-// GET /funds/maintenance-status — tracking who paid and cumulative debt
-router.get("/maintenance-status", authMiddleware, async (req, res) => {
+// GET /funds/maintenance-status (Filtered by societyId)
+router.get("/maintenance-status", authMiddleware, tenantMiddleware, async (req, res) => {
   try {
     const db = getDb();
     const admin = getAdmin();
     
-    // 1. Get liable users
-    const usersSnap = await db.collection("users").where("status", "==", "approved").get();
+    const usersSnap = await db.collection("users")
+        .where("societyId", "==", req.societyId)
+        .where("status", "==", "approved")
+        .get();
+    
     const liableUsers = usersSnap.docs
         .map(d => ({uid: d.id, ...d.data()}))
         .filter(u => u.maintenanceExempt !== true);
 
-    // 2. Fetch society settings for fee
-    const settingsSnap = await db.collection("society_settings").doc("global").get();
+    const settingsSnap = await db.collection("society_settings").doc(req.societyId).get();
     const maintenanceFee = settingsSnap.exists ? (settingsSnap.data().maintenanceFee || 625) : 625;
 
-    // 3. Define the last 3 months to check
     const now = new Date();
     const monthsToCheck = [];
     for (let i = 0; i < 3; i++) {
@@ -198,9 +214,9 @@ router.get("/maintenance-status", authMiddleware, async (req, res) => {
         });
     }
 
-    // 4. Get all maintenance credits for these months
     const oldestDate = monthsToCheck[monthsToCheck.length - 1].start;
     const transSnap = await db.collection("transactions")
+        .where("societyId", "==", req.societyId)
         .where("createdAt", ">=", oldestDate)
         .where("category", "==", "maintenance")
         .where("type", "==", "credit")
@@ -208,9 +224,8 @@ router.get("/maintenance-status", authMiddleware, async (req, res) => {
 
     const payments = transSnap.docs.map(doc => doc.data());
 
-    // 5. Calculate status and debt for each resident
     const overdueList = [];
-    const paidUids = new Set(); // current month only for the 'paid' list
+    const paidUids = new Set(); 
 
     liableUsers.forEach(user => {
         let monthsMissed = 0;
@@ -248,5 +263,8 @@ router.get("/maintenance-status", authMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+module.exports = router;
+
 
 module.exports = router;

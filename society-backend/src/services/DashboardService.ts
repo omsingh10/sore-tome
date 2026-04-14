@@ -19,6 +19,10 @@ export class DashboardService {
   }
 
   public async getDashboardStats(societyId: string) {
+    if (!societyId) {
+      throw new Error("Tenant context (societyId) required for dashboard stats");
+    }
+
     const cacheKey = `admin:dashboard:${societyId}`;
     
     // Attempt cache fetch
@@ -30,41 +34,36 @@ export class DashboardService {
     }
 
     const db = getDb();
-    const admin = getAdmin();
 
-    // 1. Fetch Pending Approvals Count
+    // 1. Fetch Pending Approvals Count (Filtered by societyId)
     const pendingSnap = await db.collection("users")
+      .where("societyId", "==", societyId)
       .where("status", "==", "pending")
       .get();
     const pendingApprovalsCount = pendingSnap.size;
 
-    // 2. Fetch Top Issues (Sorted by Priority)
-    // Priority order: high -> medium -> low
+    // 2. Fetch Top Issues (Sorted by Priority, Filtered by societyId)
     const issuesSnap = await db.collection("issues")
+      .where("societyId", "==", societyId)
       .where("status", "==", "open")
-      .limit(10) // Fetch more to manually sort if needed
+      .orderBy("priority", "desc") // Relies on Composite Index: (societyId + status + priority)
+      .limit(3)
       .get();
     
-    const priorityMap: Record<string, number> = { high: 3, medium: 2, low: 1 };
-    const topIssues = issuesSnap.docs
-      .map((doc: any) => {
-        const data = doc.data();
-        return { 
-          id: doc.id, 
-          ...data,
-          priority: data.priority || 'medium' // Default for old data
-        };
-      })
-      .sort((a: any, b: any) => (priorityMap[b.priority] || 0) - (priorityMap[a.priority] || 0))
-      .slice(0, 3);
+    const topIssues = issuesSnap.docs.map((doc: any) => ({ 
+      id: doc.id, 
+      ...doc.data() 
+    }));
 
-    // 3. Recent Updates (Combined Notices & Events)
+    // 3. Recent Updates (Filtered by societyId)
     const noticesSnap = await db.collection("notices")
+      .where("societyId", "==", societyId)
       .orderBy("createdAt", "desc")
       .limit(3)
       .get();
     
     const eventsSnap = await db.collection("events")
+      .where("societyId", "==", societyId)
       .orderBy("createdAt", "desc")
       .limit(3)
       .get();
@@ -78,9 +77,10 @@ export class DashboardService {
         return timeB - timeA;
     }).slice(0, 4);
 
-    // 4. Financial Summary (Firestore)
-    // V3.10: Using Firestore transactions instead of Postgres until formal migration
-    const transSnap = await db.collection("transactions").get();
+    // 4. Financial Summary (Filtered by societyId)
+    const transSnap = await db.collection("transactions")
+      .where("societyId", "==", societyId)
+      .get();
     let totalCollected = 0;
     let totalSpent = 0;
     transSnap.forEach((doc: any) => {
@@ -89,13 +89,14 @@ export class DashboardService {
       if (d.type === "debit") totalSpent += d.amount;
     });
 
-    // 5. Society Settings (Target & Currency)
-    const settingsSnap = await db.collection("society_settings").doc("global").get();
+    // 5. Society Settings (Society-Specific ID)
+    const settingsSnap = await db.collection("society_settings").doc(societyId).get();
     const settings = settingsSnap.exists ? settingsSnap.data() : { target: 200000, currency: "Rs" };
-    const target = settings.target > 0 ? settings.target : 1; // Prevent division by zero
+    const target = settings.target > 0 ? settings.target : 1; 
 
-    // 6. Active Residents (On-Site Count)
+    // 6. Active Residents (Filtered by societyId)
     const activeResidentsSnap = await db.collection("users")
+      .where("societyId", "==", societyId)
       .where("status", "==", "approved")
       .get();
     const activeResidentsCount = activeResidentsSnap.size;
@@ -116,7 +117,8 @@ export class DashboardService {
       updatedAt: new Date().toISOString()
     };
 
-    await this.redis.setex(cacheKey, 300, JSON.stringify(stats)); // 5 min cache
+    await this.redis.setex(cacheKey, 300, JSON.stringify(stats)); 
     return stats;
   }
+
 }

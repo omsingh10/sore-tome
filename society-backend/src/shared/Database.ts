@@ -39,8 +39,31 @@ class Database {
   }
 
   public getPool(): Pool {
+    const originalQuery = this.pool.query.bind(this.pool);
+
+    // V3.14: Observability Wrapper (Slow Query Tracking)
+    this.pool.query = (async (text: any, params: any) => {
+      const start = Date.now();
+      try {
+        const result = await originalQuery(text, params);
+        const duration = Date.now() - start;
+
+        if (duration > 500) {
+          logger.warn({ 
+            duration, 
+            query: typeof text === 'string' ? text.substring(0, 200) : 'complex_query'
+          }, "⚠️ Slow Database Query Detected");
+        }
+
+        return result;
+      } catch (err) {
+        throw err;
+      }
+    }) as any;
+
     return this.pool;
   }
+
 
   private async checkConnection() {
     try {
