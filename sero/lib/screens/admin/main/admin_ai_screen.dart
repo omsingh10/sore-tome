@@ -265,6 +265,7 @@ class _AdminAIScreenState extends State<AdminAIScreen> {
               builder: (context) => const AiChatScreen(
                 initialMessage: 'Check doc indexing progress and suggest notices',
                 initialContext: {'screen': 'admin_ai'},
+                userRole: 'admin',
               ),
             ),
           );

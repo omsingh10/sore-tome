@@ -76,14 +76,16 @@ class OverdueSection extends StatelessWidget {
 
 class DisbursementsSection extends StatelessWidget {
   final List<FundTransaction> transactions;
-  final VoidCallback onSmartScan;
-  final VoidCallback onManualLog;
+  final VoidCallback? onSmartScan;
+  final VoidCallback? onManualLog;
+  final bool isResidentView;
 
   const DisbursementsSection({
     super.key,
     required this.transactions,
-    required this.onSmartScan,
-    required this.onManualLog,
+    this.onSmartScan,
+    this.onManualLog,
+    this.isResidentView = false,
   });
 
   @override
@@ -105,13 +107,16 @@ class DisbursementsSection extends StatelessWidget {
                   letterSpacing: 1.5,
                 ),
               ),
-              Row(
-                children: [
-                  _ActionButton(icon: Icons.qr_code_scanner_rounded, onTap: onSmartScan),
-                  const SizedBox(width: 12),
-                  _ActionButton(icon: Icons.add_rounded, onTap: onManualLog),
-                ],
-              ),
+              if (!isResidentView)
+                Row(
+                  children: [
+                    if (onSmartScan != null)
+                      _ActionButton(icon: Icons.qr_code_scanner_rounded, onTap: onSmartScan!),
+                    const SizedBox(width: 12),
+                    if (onManualLog != null)
+                      _ActionButton(icon: Icons.add_rounded, onTap: onManualLog!),
+                  ],
+                ),
             ],
           ),
           const SizedBox(height: 16),

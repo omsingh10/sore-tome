@@ -1,464 +1,191 @@
-import 'dart:convert';
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sero/app/theme.dart';
 import 'package:sero/models/fund.dart';
 import 'package:sero/services/firestore_service.dart';
-import 'package:sero/services/api_service.dart';
-import '../../shared/ai_chat/ai_chat_screen.dart';
-
-import 'package:flutter_animate/flutter_animate.dart';
-
-// Modularized Widgets
-import 'package:sero/widgets/shared/funds/funds_header.dart';
-import 'package:sero/widgets/shared/funds/funds_metrics.dart';
-import 'package:sero/widgets/shared/funds/funds_sections.dart';
+import 'package:sero/providers/shared/funds_provider.dart';
 import 'package:sero/widgets/shared/funds/financial_card.dart';
+import 'package:sero/widgets/shared/funds/funds_sections.dart';
+import 'package:sero/widgets/shared/funds/funds_metrics.dart';
+import 'package:sero/widgets/shared/branding_header.dart';
+import 'package:sero/widgets/shared/hero_header.dart';
 
-class ResidentFundsScreen extends StatefulWidget {
+class ResidentFundsScreen extends ConsumerStatefulWidget {
   const ResidentFundsScreen({super.key});
 
   @override
-  State<ResidentFundsScreen> createState() => _ResidentFundsScreenState();
+  ConsumerState<ResidentFundsScreen> createState() => _ResidentFundsScreenState();
 }
 
-class _ResidentFundsScreenState extends State<ResidentFundsScreen> {
+class _ResidentFundsScreenState extends ConsumerState<ResidentFundsScreen> {
   final _service = FirestoreService();
-  FundSummary? _summary;
-  List<FundTransaction> _transactions = [];
-  List<OverdueResident> _overdueList = [];
-  bool _loading = true;
 
   @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final summary = await _service.getFundSummary();
-    final tx = await _service.getTransactions();
-    final overdue = await _service.getOverdueResidents();
+  Widget build(BuildContext context) {
+    final balanceAsync = ref.watch(residentBalanceProvider);
+    final summaryAsync = ref.watch(fundSummaryProvider);
     
-    if (!mounted) return;
-    setState(() {
-      _summary = summary;
-      _transactions = tx;
-      _overdueList = overdue;
-      _loading = false;
-    });
-  }
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          const BrandingHeader(),
+          HeroHeader(
+            title: 'Society Treasury',
+            label: 'FINANCIAL TRANSPARENCY',
+            description: 'Real-time visibility into society funds and your contributions. Trust is built through accountability.',
+            onRefresh: () {
+              ref.invalidate(residentBalanceProvider);
+              ref.invalidate(fundSummaryProvider);
+            },
+          ),
+        ],
+        body: RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(residentBalanceProvider);
+            ref.invalidate(fundSummaryProvider);
+          },
+          color: kPrimaryGreen,
+          child: CustomScrollView(
+            slivers: [
+              // --- PERSONAL STATUS SECTION ---
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionLabel('Your Contribution'),
+                      const SizedBox(height: 12),
+                      balanceAsync.when(
+                        data: (balance) => FinancialCard(
+                          title: 'Payment Status',
+                          amount: balance > 0 ? '₹${balance.toStringAsFixed(0)} Due' : 'All Clear',
+                          trend: balance > 0 ? 'Pending Maintenance' : 'Fees Paid for April',
+                          icon: balance > 0 ? Icons.error_outline_rounded : Icons.check_circle_outline_rounded,
+                          isHero: true,
+                          isPositive: balance <= 0,
+                          isNeutral: balance > 0,
+                        ),
+                        loading: () => const _CardPlaceholder(),
+                        error: (e, _) => Center(child: Text('Error: $e')),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
-  Future<void> _smartScan() async {
-    final picker = ImagePicker();
-    final image = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
-    
-    if (image != null) {
-      if (!mounted) return;
-      showModalBottomSheet(
-        context: context,
-        isDismissible: false,
-        backgroundColor: Colors.white,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(40),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircularProgressIndicator(color: kPrimaryGreen),
-              const SizedBox(height: 24),
-              Text('Analyzing Receipt...', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Text('Sero is extracting financial data', style: GoogleFonts.outfit(fontSize: 12, color: Colors.grey)),
+              // --- SOCIETY WELLNESS SECTION ---
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _sectionLabel('Society Financial Health'),
+                      const SizedBox(height: 12),
+                      summaryAsync.when(
+                        data: (summary) => Row(
+                          children: [
+                            Expanded(
+                              child: FinancialCard(
+                                title: 'Total Collected',
+                                amount: '₹${summary.totalCollected.toStringAsFixed(0)}',
+                                trend: 'Society Revenue',
+                                icon: Icons.account_balance_rounded,
+                                isPositive: true,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: FinancialCard(
+                                title: 'Remaining',
+                                amount: '₹${summary.remaining.toStringAsFixed(0)}',
+                                trend: '${summary.percentRemaining.toStringAsFixed(1)}% Reserve',
+                                icon: Icons.savings_rounded,
+                                isPositive: true,
+                              ),
+                            ),
+                          ],
+                        ),
+                        loading: () => const Row(children: [Expanded(child: _CardPlaceholder()), SizedBox(width: 16), Expanded(child: _CardPlaceholder())]),
+                        error: (e, _) => const SizedBox.shrink(),
+                      ).animate().fade().slideY(begin: 0.1),
+                      const SizedBox(height: 24),
+                      summaryAsync.when(
+                        data: (summary) => SpendingBreakdownCard(
+                          breakdown: summary.categoryBreakdown,
+                          totalSpent: summary.totalSpent,
+                        ),
+                        loading: () => const _CardPlaceholder(height: 180),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // --- TRANSPARENCY LEDGER ---
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: _sectionLabel('Transparency Ledger'),
+                      ),
+                      const SizedBox(height: 8),
+                      StreamBuilder<List<FundTransaction>>(
+                        stream: _service.getTransactionsStream(),
+                        builder: (context, snapshot) {
+                          return DisbursementsSection(
+                            transactions: snapshot.data ?? [],
+                            isResidentView: true,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
             ],
           ),
         ),
-      );
-
-      try {
-        final bytes = await image.readAsBytes();
-        final base64Image = 'data:image/png;base64,${base64Encode(bytes)}';
-        
-        final res = await ApiService.post('/ai/extract-receipt', {
-          'base64Image': base64Image,
-        });
-
-        if (!mounted) return;
-        Navigator.pop(context); // Close loading
-
-        if (res.statusCode == 200) {
-          final data = jsonDecode(res.body);
-          _showExtractionResult(data);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Extraction failed: ${res.body}')),
-          );
-        }
-      } catch (e) {
-        if (!mounted) return;
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
-      }
-    }
-  }
-
-  void _showExtractionResult(Map<String, dynamic> data) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (context) => ExtractionForm(
-        data: data, 
-        onConfirm: (tx) async {
-          await _service.addTransaction(tx);
-          await _load();
-        },
       ),
     );
   }
+
+  Widget _sectionLabel(String label) {
+    return Text(
+      label.toUpperCase(),
+      style: GoogleFonts.outfit(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: const Color(0xFF64748B),
+        letterSpacing: 1.2,
+      ),
+    );
+  }
+}
+
+class _CardPlaceholder extends StatelessWidget {
+  final double height;
+  const _CardPlaceholder({this.height = 120});
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return const Scaffold(
-        backgroundColor: Colors.white,
-        body: Center(child: CircularProgressIndicator(color: kPrimaryGreen)),
-      );
-    }
-
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        color: kPrimaryGreen,
-        displacement: 40,
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            FundsHeader(onRefresh: _load),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              sliver: SliverList(
-                delegate: SliverChildListDelegate([
-                  // Featured Hero Metric
-                  FinancialCard(
-                    title: 'Total Collections',
-                    amount: '₹${_summary?.totalCollected.toStringAsFixed(0) ?? "0"}',
-                    trend: 'Society Revenue',
-                    icon: Icons.account_balance_wallet_rounded,
-                    isPositive: true,
-                    isHero: true,
-                  ), // Animation removed per request
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Secondary Metrics Grid Row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: FinancialCard(
-                          title: 'Overdue',
-                          amount: '₹${(_summary?.outstandingDues ?? 0).toStringAsFixed(0)}',
-                          trend: '${_summary?.overdueCount ?? 0} residents',
-                          icon: Icons.assignment_late_rounded,
-                          isNeutral: true,
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: FinancialCard(
-                          title: 'Expenses',
-                          amount: '₹${_summary?.totalSpent.toStringAsFixed(0) ?? "0"}',
-                          trend: 'Last 30 days',
-                          icon: Icons.receipt_long_rounded,
-                          isNeutral: true,
-                        ),
-                      ),
-                    ],
-                  ).animate().fade().slideY(begin: 0.2, delay: 200.ms),
-                  const SizedBox(height: 24),
-                ]),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: SpendingBreakdownCard(
-                breakdown: _summary?.categoryBreakdown ?? {},
-                totalSpent: _summary?.totalSpent ?? 0,
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            SliverToBoxAdapter(
-              child: OverdueSection(overdueList: _overdueList),
-            ),
-            SliverToBoxAdapter(
-              child: StreamBuilder<List<FundTransaction>>(
-                stream: _service.getTransactionsStream(),
-                initialData: _transactions, 
-                builder: (context, snapshot) {
-                  return DisbursementsSection(
-                    transactions: snapshot.data ?? [],
-                    onSmartScan: _smartScan,
-                    onManualLog: () => _showExtractionResult({}), // Open empty form
-                  );
-                },
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 160)),
-          ],
-        ),
+    return Container(
+      height: height,
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(24),
       ),
-      floatingActionButtonLocation: kPillNavbarFabLocation,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AiChatScreen(
-                initialMessage: 'Analyze my expenses and detect anomalies',
-                initialContext: {'screen': 'funds'},
-              ),
-            ),
-          );
-        },
-        backgroundColor: kPrimaryGreen,
-        child: const Icon(Icons.auto_awesome, color: Colors.white),
-      ),
+      child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryGreen)),
     );
   }
 }
-
-class ExtractionForm extends StatefulWidget {
-  final Map<String, dynamic> data;
-  final Function(FundTransaction) onConfirm;
-
-  const ExtractionForm({super.key, required this.data, required this.onConfirm});
-
-  @override
-  State<ExtractionForm> createState() => _ExtractionFormState();
-}
-
-class _ExtractionFormState extends State<ExtractionForm> {
-  late TextEditingController _vendorController;
-  late TextEditingController _amountController;
-  late TextEditingController _dateController;
-  late TextEditingController _noteController;
-  String _category = 'Other';
-  
-  bool _doubleConfirm = false;
-  int _secondsRemaining = 600; // 10 minutes
-  Timer? _timer;
-
-  final List<String> _categories = [
-    'Maintenance', 'Utilities', 'Security', 'Repairs', 'Landscaping',
-    'Stationery', 'Events', 'Sinking Fund', 'Member Dues', 'Other'
-  ];
-
-  @override
-  void initState() {
-    super.initState();
-    final parsed = widget.data['parsed'] ?? widget.data;
-    _vendorController = TextEditingController(text: parsed['vendor']?.toString() ?? '');
-    _amountController = TextEditingController(text: parsed['amount']?.toString() ?? '');
-    _dateController = TextEditingController(text: parsed['date']?.toString() ?? '');
-    _noteController = TextEditingController(text: parsed['note']?.toString() ?? '');
-    _category = parsed['category']?.toString() ?? 'Other';
-    if (!_categories.contains(_category)) _category = 'Other';
-
-    _startTimer();
-  }
-
-  void _startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_secondsRemaining > 0) {
-        if (mounted) {
-          setState(() => _secondsRemaining--);
-        }
-      } else {
-        _timer?.cancel();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _vendorController.dispose();
-    _amountController.dispose();
-    _dateController.dispose();
-    _noteController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final amount = double.tryParse(_amountController.text) ?? 0.0;
-    final isExpired = _secondsRemaining <= 0;
-    final needsDoubleConfirm = amount >= 5000;
-
-    return Padding(
-      padding: EdgeInsets.only(
-        bottom: MediaQuery.of(context).viewInsets.bottom,
-        top: 24, left: 24, right: 24,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.auto_awesome, color: kPrimaryGreen, size: 20),
-                    const SizedBox(width: 8),
-                    Text('Verify AI Extraction', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w700)),
-                  ],
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: isExpired ? Colors.red.shade50 : (_secondsRemaining < 120 ? Colors.orange.shade50 : Colors.blue.shade50),
-                    borderRadius: BorderRadius.circular(100),
-                  ),
-                  child: Text(
-                    isExpired ? 'EXPIRED' : '${(_secondsRemaining / 60).floor()}:${(_secondsRemaining % 60).toString().padLeft(2, '0')}',
-                    style: GoogleFonts.outfit(
-                      fontSize: 12, 
-                      fontWeight: FontWeight.w700,
-                      color: isExpired ? Colors.red : (_secondsRemaining < 120 ? Colors.orange : Colors.blue),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            
-            _EditableField(label: 'Vendor', controller: _vendorController),
-            _EditableField(label: 'Amount (₹)', controller: _amountController, isHero: true, keyboardType: TextInputType.number),
-            _EditableField(label: 'Date (YYYY-MM-DD)', controller: _dateController),
-            
-            Text('CATEGORY', style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 1.1)),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _categories.contains(_category) ? _category : 'Other',
-              decoration: InputDecoration(
-                filled: true,
-                fillColor: const Color(0xFFF8FAFC),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              ),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c, style: GoogleFonts.outfit(fontSize: 14)))).toList(),
-              onChanged: (val) => setState(() => _category = val ?? 'Other'),
-            ),
-            const SizedBox(height: 16),
-            _EditableField(label: 'Note', controller: _noteController),
-
-            const SizedBox(height: 32),
-            
-            if (_doubleConfirm)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Center(child: Text('⚠️ Are you sure? This is a significant amount.', style: GoogleFonts.outfit(fontSize: 13, color: Colors.blue.shade900, fontWeight: FontWeight.w600))),
-              ),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: isExpired ? null : () {
-                  if (needsDoubleConfirm && !_doubleConfirm) {
-                    setState(() => _doubleConfirm = true);
-                    return;
-                  }
-                  
-                  final tx = FundTransaction(
-                    id: '', 
-                    title: _vendorController.text,
-                    description: _noteController.text,
-                    amount: -1 * (double.tryParse(_amountController.text) ?? 0.0),
-                    date: DateTime.tryParse(_dateController.text) ?? DateTime.now(),
-                    category: _category,
-                  );
-                  
-                  widget.onConfirm(tx);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _doubleConfirm ? Colors.blue.shade700 : kPrimaryGreen,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  minimumSize: const Size(64, 56),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  elevation: 0,
-                ),
-                child: Text(
-                  isExpired ? 'EXPIRED' : (_doubleConfirm ? 'YES, CONFIRM & SAVE' : '✅ CONFIRM & SAVE'), 
-                  style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: Colors.white, letterSpacing: 1),
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _EditableField extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final bool isHero;
-  final TextInputType keyboardType;
-
-  const _EditableField({
-    required this.label, 
-    required this.controller, 
-    this.isHero = false,
-    this.keyboardType = TextInputType.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label.toUpperCase(), style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.w800, color: const Color(0xFF94A3B8), letterSpacing: 1.1)),
-          const SizedBox(height: 6),
-          TextField(
-            controller: controller,
-            keyboardType: keyboardType,
-            style: GoogleFonts.outfit(
-              fontSize: isHero ? 22 : 15,
-              fontWeight: isHero ? FontWeight.w700 : FontWeight.w500,
-              color: isHero ? const Color(0xFF1E3A8A) : const Color(0xFF334155),
-            ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: const Color(0xFFF8FAFC),
-              hintText: 'Enter $label',
-              hintStyle: GoogleFonts.outfit(color: Colors.grey, fontSize: 14),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-
-
-
-
-
-
-

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sero/providers/admin/dashboard_provider.dart';
 import 'package:sero/providers/shared/funds_provider.dart';
 import 'package:sero/providers/shared/channels_provider.dart';
@@ -11,6 +11,8 @@ import 'admin_access_logs_screen.dart';
 import 'admin_channels_screen.dart';
 import '../post_notice_screen.dart';
 import 'widgets/admin_home_widgets.dart';
+import 'package:sero/providers/shared/community_providers.dart';
+import 'package:sero/models/guest_pass.dart';
 
 class AdminMainHome extends ConsumerWidget {
   const AdminMainHome({super.key});
@@ -139,6 +141,11 @@ class AdminMainHome extends ConsumerWidget {
                         ),
                         onEditTarget: () => _showEditTargetBottomSheet(context, ref, stats.financials.target),
                       ),
+
+                      // --- VISITOR MONITOR (Gate Security) ---
+                      _buildVisitorMonitor(context, ref),
+                      
+                      const SizedBox(height: 100),
                     ]),
                   ),
                   loading: () => const SliverFillRemaining(
@@ -492,6 +499,115 @@ class AdminMainHome extends ConsumerWidget {
           },
         );
       },
+    );
+  }
+
+  Widget _buildVisitorMonitor(BuildContext context, WidgetRef ref) {
+    final passesAsync = ref.watch(allTodayGuestPassesProvider);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "VISITOR MONITOR",
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: const Color(0xFF64748B),
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const Icon(Icons.security, size: 16, color: Color(0xFF64748B)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          passesAsync.when(
+            data: (passes) {
+              if (passes.isEmpty) {
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Center(
+                    child: Text(
+                      "No pre-approved visitors today",
+                      style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 13),
+                    ),
+                  ),
+                );
+              }
+              return Column(
+                children: passes.take(5).map((p) => Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(color: const Color(0xFFE2E8F0)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: p.status == GuestPassStatus.arrived ? const Color(0xFFF0FDF4) : const Color(0xFFEFF6FF),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          p.category == GuestPassCategory.delivery ? Icons.delivery_dining_rounded : Icons.person_rounded,
+                          color: p.status == GuestPassStatus.arrived ? Colors.green : const Color(0xFF3B82F6),
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              p.visitorName,
+                              style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.w700, color: const Color(0xFF1E293B)),
+                            ),
+                            Text(
+                              "Flat ${p.flatNumber} • ${p.category.name.toUpperCase()}",
+                              style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (p.status == GuestPassStatus.approved)
+                        ElevatedButton(
+                          onPressed: () => CommunityActions.checkInVisitor(p.id),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF345D7E),
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: Text("CHECK-IN", style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold)),
+                        )
+                      else if (p.status == GuestPassStatus.arrived)
+                        const Icon(Icons.check_circle, color: Colors.green, size: 24),
+                    ],
+                  ),
+                ).animate().fade().slideX(begin: 0.1)).toList(),
+              );
+            },
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Text("Error loading visitors: $e"),
+          ),
+        ],
+      ),
     );
   }
 }

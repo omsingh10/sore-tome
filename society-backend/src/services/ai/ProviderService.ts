@@ -3,7 +3,7 @@ import { CloudflareWorkersAI } from "@langchain/cloudflare";
 import { ChatCerebras } from "@langchain/cerebras";
 import { Runnable, RunnableConfig } from "@langchain/core/runnables";
 import { logger } from "../../shared/Logger";
-import IORedis from "ioredis";
+import { redis } from "../../shared/Redis";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -26,14 +26,12 @@ const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
 
 export class ProviderService {
   private static instance: ProviderService;
-  private redis: IORedis;
+  private redis = redis;
   private readonly CB_PREFIX = "circuit_breaker:provider:";
   private readonly CB_THRESHOLD = 3;
   private readonly CB_COOLDOWN = 60; // seconds
 
-  private constructor() {
-    this.redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
-  }
+  private constructor() {}
 
   public static getInstance(): ProviderService {
     if (!ProviderService.instance) {

@@ -2,6 +2,14 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/services/api_service.dart';
 import 'package:sero/models/issue.dart';
+import 'package:sero/services/firestore_service.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
+
+final issuesStreamProvider = StreamProvider<List<Issue>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return const Stream.empty();
+  return FirestoreService().getIssuesStream(user.name); 
+});
 
 final issuesProvider = StateNotifierProvider<IssuesNotifier, AsyncValue<List<Issue>>>((ref) {
   return IssuesNotifier();

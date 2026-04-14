@@ -1,18 +1,15 @@
 // @ts-ignore
 import { getDb, getAdmin } from "../../config/firebase";
-import { Pool } from "pg";
-import IORedis from "ioredis";
+import { db } from "../shared/Database";
+import { redis } from "../shared/Redis";
 import { logger } from "../shared/Logger";
 
 export class DashboardService {
   private static instance: DashboardService;
-  private pool: Pool;
-  private redis: IORedis;
+  private pool = db;
+  private redis = redis;
 
-  private constructor() {
-    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
-    this.redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
-  }
+  private constructor() {}
 
   public static getInstance(): DashboardService {
     if (!DashboardService.instance) {

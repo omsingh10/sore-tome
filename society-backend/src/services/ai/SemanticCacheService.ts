@@ -1,18 +1,16 @@
-import IORedis from "ioredis";
+import { db } from "../../shared/Database";
+import { redis } from "../../shared/Redis";
 import { CloudflareEmbeddings } from "./CloudflareEmbeddings";
 import { logger } from "../../shared/Logger";
-import { Pool } from "pg";
 
 export class SemanticCacheService {
   private static instance: SemanticCacheService;
-  private redis: IORedis;
-  private pool: Pool;
+  private redis = redis;
+  private pool = db;
   private embeddings: CloudflareEmbeddings;
   private readonly SIMILARITY_THRESHOLD = 0.95;
 
   private constructor() {
-    this.redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
-    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
     this.embeddings = new CloudflareEmbeddings({
       accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
       apiToken: process.env.CLOUDFLARE_API_TOKEN!,

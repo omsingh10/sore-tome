@@ -5,6 +5,8 @@ import 'package:sero/models/fund.dart';
 import 'api_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:sero/models/society_record.dart';
+import 'package:sero/models/facility_booking.dart';
 
 class FirestoreService {
   // ---------- NOTICES ----------
@@ -120,15 +122,76 @@ class FirestoreService {
   }
 
   // ---------- REAL-TIME STREAMS ----------
+  Stream<List<Notice>> getNoticesStream() {
+    return FirebaseFirestore.instance
+        .collection('notices')
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs.map((doc) => Notice.fromMap(doc.data())).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt)); // Corrected: use createdAt
+          return list;
+        });
+  }
+
+  Stream<List<Issue>> getIssuesStream(String userId) {
+    return FirebaseFirestore.instance
+        .collection('issues')
+        .where('postedBy', isEqualTo: userId)
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs.map((doc) => Issue.fromMap(doc.data())).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
+  }
+
+  Stream<List<Issue>> getAllIssuesStream() {
+    return FirebaseFirestore.instance
+        .collection('issues')
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs.map((doc) => Issue.fromMap(doc.data())).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
+  }
+
+  Stream<List<Facility>> getFacilitiesStream() {
+    return FirebaseFirestore.instance
+        .collection('facilities')
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) => Facility.fromMap(doc.data(), doc.id)).toList();
+        });
+  }
+
+  Stream<List<SocietyRecord>> getRecordsStream() {
+    return FirebaseFirestore.instance
+        .collection('records')
+        .snapshots()
+        .map((snapshot) {
+          final list = snapshot.docs.map((doc) => SocietyRecord.fromMap(doc.data(), doc.id)).toList();
+          list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+          return list;
+        });
+  }
+
+  // ---------- OPERATIONAL ACTIONS ----------
+  Future<void> updateIssueStatusAdmin(String id, String status) async {
+    await FirebaseFirestore.instance.collection('issues').doc(id).update({'status': status});
+  }
+
+  Future<void> postSocietyRecord(SocietyRecord record) async {
+    await FirebaseFirestore.instance.collection('records').add(record.toMap());
+  }
+
   Stream<List<FundTransaction>> getTransactionsStream() {
     return FirebaseFirestore.instance
         .collection('transactions')
         .where('type', isEqualTo: 'debit') // Focus on disbursements
-        .orderBy('createdAt', descending: true)
-        .limit(10)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((doc) {
+          final list = snapshot.docs.map((doc) {
             final data = doc.data();
             return FundTransaction(
               id: doc.id,
@@ -139,6 +202,8 @@ class FirestoreService {
               category: data['category'] ?? 'Other',
             );
           }).toList();
+          list.sort((a, b) => b.date.compareTo(a.date)); // Correct: uses date
+          return list;
         });
   }
 }

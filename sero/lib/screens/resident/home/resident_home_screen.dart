@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sero/app/theme.dart';
-import 'package:sero/models/notice.dart';
-import 'package:sero/models/issue.dart';
-import 'package:sero/services/firestore_service.dart';
 import 'package:sero/widgets/resident/notice_card.dart';
 import 'package:sero/widgets/resident/issue_card.dart';
-import 'package:sero/services/ai_service.dart';
-import '../../shared/ai_chat/ai_chat_screen.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/providers/shared/auth_provider.dart';
+import 'package:sero/providers/shared/notices_provider.dart';
+import 'package:sero/providers/shared/issues_provider.dart';
+import 'package:sero/providers/shared/funds_provider.dart';
+import 'package:sero/providers/shared/community_providers.dart';
+import 'package:sero/models/guest_pass.dart';
 import '../../shared/profile/profile_screen.dart';
 
 class ResidentHomeScreen extends ConsumerStatefulWidget {
@@ -22,81 +21,340 @@ class ResidentHomeScreen extends ConsumerStatefulWidget {
 }
 
 class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
-  final _service = FirestoreService();
-  final _aiService = AiService();
-  List<Notice> _notices = [];
-  List<Issue> _myIssues = [];
-  Map<String, dynamic>? _aiDigest;
-  bool _loading = true;
+  
+  // Track previous counts for pulse animation
+  int? _prevNoticeCount;
+  int? _prevIssueCount;
 
   @override
   void initState() {
     super.initState();
-    _load();
-  }
-
-  Future<void> _load() async {
-    final results = await Future.wait([
-      _service.getNotices(),
-      _service.getIssues(),
-      _aiService.getDigest(),
-    ]);
-
-    if (!mounted) return;
-    setState(() {
-      _notices = results[0] as List<Notice>;
-      _myIssues = (results[1] as List<Issue>).where((i) => i.postedBy == 'Rahul').toList();
-      _aiDigest = results[2] as Map<String, dynamic>?;
-      _loading = false;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
+    final noticesAsync = ref.watch(noticesStreamProvider);
+    final issuesAsync = ref.watch(issuesStreamProvider);
+    final balanceAsync = ref.watch(residentBalanceProvider);
+    final user = ref.watch(authProvider).value;
+
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Column(
         children: [
-          _buildTopBar(),
+          _buildTopBar(user),
           Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _load,
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
-                      children: [
-                        _sectionLabel('Overview'),
-                        const SizedBox(height: 6),
-                        _statsRow(),
-                        const SizedBox(height: 12),
-                        if (_aiDigest != null) ...[
-                          _buildAIDigest(),
-                          const SizedBox(height: 12),
-                        ],
-                        _sectionLabel('Latest notices'),
-                        const SizedBox(height: 6),
-                        ..._notices.map((n) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: NoticeCard(notice: n),
-                            )),
-                        _sectionLabel('My recent issues'),
-                        const SizedBox(height: 6),
-                        ..._myIssues.map((i) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8),
-                              child: IssueCard(issue: i),
-                            )),
-                      ],
-                    ),
+            child: RefreshIndicator(
+              onRefresh: () async {
+                ref.invalidate(residentBalanceProvider);
+              },
+              color: kPrimaryGreen,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 160),
+                children: [
+                  // --- QUICK PAY BANNER ---
+                  balanceAsync.when(
+                    data: (balance) => balance > 0 
+                      ? _buildQuickPayBanner(balance) 
+                      : const SizedBox.shrink(),
+                    loading: () => const SizedBox.shrink(),
+                    error: (_, __) => const SizedBox.shrink(),
                   ),
+
+                  // --- ACCESS CONTROL (GUEST GATE) ---
+                  _sectionLabel('Access Control'),
+                  const SizedBox(height: 6),
+                  _buildGuestGate(),
+
+                  const SizedBox(height: 12),
+
+                  _sectionLabel('Society Pulse'),
+                  const SizedBox(height: 6),
+                  
+                  // --- STAT CARDS ---
+                  Row(
+                    children: [
+                      Expanded(
+                        child: issuesAsync.when(
+                          data: (issues) {
+                            final openCount = issues.where((i) => i.status == 'open').length;
+                            final shouldPulse = _prevIssueCount != null && openCount > _prevIssueCount!;
+                            _prevIssueCount = openCount;
+                            
+                            Widget card = _StatCard(
+                              value: '$openCount', 
+                              label: 'Open issues',
+                              icon: Icons.error_outline,
+                              color: kAccentGreen,
+                            );
+                            
+                            if (shouldPulse) {
+                              return card.animate(onPlay: (controller) => controller.repeat(reverse: true, count: 3))
+                                .moveY(begin: 0, end: -4, duration: 400.ms, curve: Curves.easeInOut)
+                                .tint(color: kAccentGreen.withValues(alpha: 0.2));
+                            }
+                            return card;
+                          },
+                          loading: () => const _StatCardPlaceholder(),
+                          error: (_, __) => const _StatCardPlaceholder(),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: noticesAsync.when(
+                          data: (notices) {
+                            final count = notices.length;
+                            final shouldPulse = _prevNoticeCount != null && count > _prevNoticeCount!;
+                            _prevNoticeCount = count;
+                            
+                            Widget card = _StatCard(
+                              value: '$count', 
+                              label: 'New notices',
+                              icon: Icons.notifications_none,
+                              color: kAccentBlue,
+                            );
+                            
+                            if (shouldPulse) {
+                              return card.animate(onPlay: (controller) => controller.repeat(reverse: true, count: 3))
+                                .moveY(begin: 0, end: -4, duration: 400.ms, curve: Curves.easeInOut)
+                                .tint(color: kAccentBlue.withValues(alpha: 0.2));
+                            }
+                            return card;
+                          },
+                          loading: () => const _StatCardPlaceholder(),
+                          error: (_, __) => const _StatCardPlaceholder(),
+                        ),
+                      ),
+                    ],
+                  ),
+                  
+                  const SizedBox(height: 24),
+                  
+                  _sectionLabel('Latest notices'),
+                  const SizedBox(height: 6),
+                  noticesAsync.when(
+                    data: (notices) => Column(
+                      children: notices.take(3).map((n) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: NoticeCard(notice: n),
+                      )).toList(),
+                    ),
+                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    error: (e, _) => Center(child: Text('Error: $e')),
+                  ),
+
+                  _sectionLabel('My recent issues'),
+                  const SizedBox(height: 6),
+                  issuesAsync.when(
+                    data: (issues) => Column(
+                      children: issues.take(3).map((i) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: IssueCard(issue: i),
+                      )).toList(),
+                    ),
+                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    error: (e, _) => Center(child: Text('Error: $e')),
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildTopBar() {
-    final user = ref.watch(authProvider).value;
+  Widget _buildGuestGate() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: kSlateBorder.withValues(alpha: 0.8)),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF0F172A).withValues(alpha: 0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pre-approve Guest',
+                    style: GoogleFonts.outfit(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: const Color(0xFF0F172A),
+                    ),
+                  ),
+                  Text(
+                    'Generate entry pass for your visitor',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      color: const Color(0xFF64748B),
+                    ),
+                  ),
+                ],
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  // Navigate to Pre-approve Screen
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPrimaryGreen,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Icon(Icons.add_rounded),
+              ),
+            ],
+          ),
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 16),
+            child: Divider(height: 1),
+          ),
+          const SizedBox(height: 12),
+          Consumer(
+            builder: (context, ref, child) {
+              final passesAsync = ref.watch(activeGuestPassesProvider);
+              return passesAsync.when(
+                data: (passes) {
+                  if (passes.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          "No active passes today",
+                          style: GoogleFonts.outfit(color: const Color(0xFF94A3B8), fontSize: 12),
+                        ),
+                      ),
+                    );
+                  }
+                  return SizedBox(
+                    height: 54,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: passes.length,
+                      separatorBuilder: (context, index) => const SizedBox(width: 12),
+                      itemBuilder: (context, index) {
+                        final p = passes[index];
+                        final categoryColor = p.category == GuestPassCategory.delivery ? kAccentBlue : kAccentGreen;
+                        final categoryIcon = p.category == GuestPassCategory.delivery ? Icons.delivery_dining_rounded : Icons.people_rounded;
+                        return _guestEntryMini(p.visitorName, p.status.toString().split('.').last.toUpperCase(), categoryIcon, categoryColor);
+                      },
+                    ),
+                  );
+                },
+                loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                error: (e, _) => Text('Error: $e'),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _guestEntryMini(String type, String status, IconData icon, Color color) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: color.withValues(alpha: 0.1)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: color, size: 18),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    type,
+                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+                  ),
+                  Text(
+                    status,
+                    style: GoogleFonts.outfit(fontSize: 10, color: const Color(0xFF64748B)),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickPayBanner(double balance) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20, left: 4, right: 4),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: kSlateBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.circle,
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10)],
+            ),
+            child: const Icon(Icons.account_balance_wallet_rounded, color: kPrimaryGreen, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '₹${balance.toStringAsFixed(0)} Due',
+                  style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
+                ),
+                Text(
+                  'Maintenance for April is pending',
+                  style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // Navigate to Funds section or payment gate
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimaryGreen,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            child: Text('PAY NOW', style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    ).animate().slideX(begin: 1, curve: Curves.easeOutCubic, duration: 600.ms);
+  }
+
+  Widget _buildTopBar(dynamic user) {
     return Container(
       decoration: const BoxDecoration(
         gradient: kPremiumGradient,
@@ -172,7 +430,7 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
             ),
             child: Row(
               children: [
-                Icon(Icons.location_on, color: kAccentGreen, size: 18),
+                const Icon(Icons.location_on, color: kAccentGreen, size: 18),
                 const SizedBox(width: 8),
                 Text(
                   'Sunset Valley Society • Flat ${user?.flatNumber ?? "..."}',
@@ -187,31 +445,6 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _statsRow() {
-    final openCount = _myIssues.where((i) => i.status == 'open').length;
-    return Row(
-      children: [
-        Expanded(
-          child: _StatCard(
-            value: '$openCount', 
-            label: 'Open issues',
-            icon: Icons.error_outline,
-            color: kAccentGreen,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatCard(
-            value: '${_notices.length}', 
-            label: 'New notices',
-            icon: Icons.notifications_none,
-            color: kAccentBlue,
-          ),
-        ),
-      ],
     );
   }
 
@@ -230,157 +463,6 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
     );
   }
 
-  Widget _buildAIDigest() {
-    final summary = _aiDigest?['summary'] ?? "Analyzing society vitals...";
-    final insights = _aiDigest?['insights'] as List? ?? [];
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 4),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFF8FAFC), Colors.white],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: kSlateBorder.withValues(alpha: 0.8)),
-        boxShadow: [
-          BoxShadow(
-            color: kPrimaryGreen.withValues(alpha: 0.05),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-            decoration: BoxDecoration(
-              color: kPrimaryGreen.withValues(alpha: 0.03),
-              border: Border(bottom: BorderSide(color: kSlateBorder.withValues(alpha: 0.5))),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(6),
-                  decoration: BoxDecoration(
-                    color: kPrimaryGreen.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.auto_awesome, size: 14, color: kPrimaryGreen),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  'SERO INTELLIGENCE',
-                  style: GoogleFonts.outfit(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: kPrimaryGreen,
-                    letterSpacing: 1.5,
-                  ),
-                ),
-                const Spacer(),
-                GestureDetector(
-                  onTap: _load,
-                  child: const Icon(Icons.refresh_rounded, size: 18, color: Color(0xFF94A3B8)),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 24, 24, 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  summary,
-                  style: GoogleFonts.outfit(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    color: const Color(0xFF0F172A),
-                    height: 1.3,
-                  ),
-                ),
-                if (insights.isNotEmpty) ...[
-                  const SizedBox(height: 20),
-                  ...insights.map((insight) => Padding(
-                    padding: const EdgeInsets.only(bottom: 14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          margin: const EdgeInsets.only(top: 6),
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(color: kAccentGreen, shape: BoxShape.circle),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Text(
-                            insight,
-                            style: GoogleFonts.outfit(
-                              fontSize: 14, 
-                              color: const Color(0xFF475569),
-                              height: 1.4,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )),
-                ],
-                const SizedBox(height: 16),
-                const Divider(color: kSlateBorder),
-                const SizedBox(height: 16),
-                InkWell(
-                  onTap: () => Navigator.push(
-                    context, 
-                    MaterialPageRoute(builder: (_) => const AiChatScreen(
-                      initialMessage: "Explain my society digest and suggest improvements",
-                      initialContext: {"screen": "home_digest"},
-                    ))
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    decoration: BoxDecoration(
-                      color: kPrimaryGreen,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: kPrimaryGreen.withValues(alpha: 0.2),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'Ask SERO for Details',
-                          style: GoogleFonts.outfit(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.auto_fix_high, size: 16, color: Colors.white),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    ).animate().fadeIn(duration: 800.ms).scale(begin: const Offset(0.95, 0.95), curve: Curves.easeOutBack);
-  }
 }
 
 class _StatCard extends StatelessWidget {
@@ -446,9 +528,20 @@ class _StatCard extends StatelessWidget {
   }
 }
 
+class _StatCardPlaceholder extends StatelessWidget {
+  const _StatCardPlaceholder();
 
-
-
-
-
-
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 120,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF1F5F9).withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: kSlateBorder.withValues(alpha: 0.3)),
+      ),
+      child: const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: kPrimaryGreen))),
+    );
+  }
+}

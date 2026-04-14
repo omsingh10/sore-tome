@@ -1,4 +1,4 @@
-import { Pool } from "pg";
+import { db } from "../../shared/Database";
 import { logger } from "../../shared/Logger";
 
 export interface EvaluationData {
@@ -13,11 +13,9 @@ export interface EvaluationData {
 
 export class AIEvaluationService {
   private static instance: AIEvaluationService;
-  private pool: Pool;
+  private pool = db;
 
-  private constructor() {
-    this.pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  }
+  private constructor() {}
 
   public static getInstance(): AIEvaluationService {
     if (!AIEvaluationService.instance) {

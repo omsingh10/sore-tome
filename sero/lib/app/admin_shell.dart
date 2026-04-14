@@ -79,7 +79,7 @@ class _AdminShellState extends ConsumerState<AdminShell> {
     }
 
     // 6. AI Help (Show for everyone in Admin shell)
-    pages.add(const AiChatScreen());
+    pages.add(const AiChatScreen(userRole: 'admin'));
     navItems.add(NavItemData(
       icon: Icons.smart_toy_outlined,
       activeIcon: Icons.smart_toy_rounded,

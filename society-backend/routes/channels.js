@@ -5,6 +5,9 @@ const { getDb, getAdmin, getStorage } = require("../config/firebase");
 const { authMiddleware, mainAdminOnly, canManageContent } = require("../middleware/auth");
 const { startMediaCleaner } = require("../utils/mediaCleaner");
 const { getAdminBriefing, convertMessageToIssue } = require("../services/channelService");
+const crypto = require("crypto");
+const { validate } = require("../src/middleware/validate");
+const { MediaUploadSchema } = require("../src/shared/schemas");
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -434,44 +437,58 @@ router.post("/:id/clear", authMiddleware, canManageContent, async (req, res) => 
   }
 });
 
-// POST /channels/:id/media - Upload Image/File (Atomic Refactor)
-router.post("/:id/media", authMiddleware, upload.single("file"), async (req, res) => {
+// POST /channels/:id/media — Upload Image/File (HARDENED: UUID Rename + Validation)
+router.post("/:id/media", authMiddleware, upload.single("file"), validate(MediaUploadSchema), async (req, res) => {
+  const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
-    if (!req.file) return res.status(400).json({ error: "No file provided" });
+    const file = req.file; // Already validated by zod middleware
     const { messageId } = req.body; 
 
     const db = getDb();
     const storage = getStorage();
     const bucket = storage.bucket();
     
-    const fileName = `channels/${req.params.id}/media/${Date.now()}_${req.file.originalname}`;
-    const file = bucket.file(fileName);
+    // Security: UUID Renaming to prevent injection/discovery
+    const fileExt = file.originalname.split(".").pop() || "bin";
+    const secureFileName = `${crypto.randomUUID()}.${fileExt}`;
+    const filePath = `channels/${req.params.id}/media/${secureFileName}`;
+    const storageFile = bucket.file(filePath);
 
-    await file.save(req.file.buffer, {
-      metadata: { contentType: req.file.mimetype }
+    await storageFile.save(file.buffer, {
+      metadata: { 
+        contentType: file.mimetype,
+        metadata: {
+          originalName: file.originalname,
+          uploadedBy: req.user.uid,
+          ip
+        }
+      }
     });
 
-    await file.makePublic();
-    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    await storageFile.makePublic();
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filePath}`;
 
     if (messageId) {
       await db.collection("channels").doc(req.params.id)
         .collection("messages").doc(messageId).update({
           mediaUrl: publicUrl,
-          mediaType: req.file.mimetype.startsWith("image/") ? "image" : "file",
-          fileName: req.file.originalname,
+          mediaType: file.mimetype.startsWith("image/") ? "image" : "file",
+          fileName: file.originalname, // We show the original but store as UUID
           status: "sent",
           updatedAt: getAdmin().firestore.FieldValue.serverTimestamp()
         });
     }
 
+    logger.info({ ip, userId: req.user.uid, fileName: secureFileName }, "Secure file upload completed");
+
     res.json({ 
       url: publicUrl, 
-      fileName: req.file.originalname, 
-      mediaType: req.file.mimetype.startsWith("image/") ? "image" : "file" 
+      fileName: file.originalname, 
+      mediaType: file.mimetype.startsWith("image/") ? "image" : "file" 
     });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error({ ip, error: err.message }, "Secure upload failed");
+    res.status(500).json({ error: "File upload failed" });
   }
 });
 

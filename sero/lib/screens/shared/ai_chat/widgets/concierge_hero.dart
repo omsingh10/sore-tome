@@ -3,27 +3,31 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class ConciergeHero extends StatelessWidget {
-  const ConciergeHero({super.key});
+  final String userRole;
+  const ConciergeHero({super.key, this.userRole = 'resident'});
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = userRole == 'admin';
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 32),
         child: Column(
           children: [
             Text(
-              'SERO AI',
+              isAdmin ? 'COMMAND AI' : 'SERO AI',
               style: GoogleFonts.outfit(
                 fontSize: 36,
                 fontWeight: FontWeight.w700,
-                color: const Color(0xFF0F172A),
+                color: isAdmin ? const Color(0xFF1E293B) : const Color(0xFF0F172A),
                 letterSpacing: -1,
               ),
             ),
             const SizedBox(height: 12),
             Text(
-              'Your premium architectural assistant for seamless\nestate administration and resident harmony.',
+              isAdmin 
+                ? 'Society Operational Intelligence. Analyzing governance,\nfinancial health, and community records in real-time.'
+                : 'Your premium architectural assistant for seamless\nestate administration and resident harmony.',
               textAlign: TextAlign.center,
               style: GoogleFonts.outfit(
                 fontSize: 14,

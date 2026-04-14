@@ -3,9 +3,9 @@ import { z } from "zod";
 import { getDb, getAdmin } from "../../../config/firebase";
 import { VectorStoreService } from "./VectorStoreService";
 import { logger } from "../../shared/Logger";
-import { Pool, PoolConfig } from "pg";
+import { db } from "../../shared/Database";
+import { redis } from "../../shared/Redis";
 import crypto from "crypto";
-import IORedis from "ioredis";
 
 // Tool Definitions & Schemas
 const NoticeSchema = z.object({
@@ -33,70 +33,15 @@ export type ToolAction = "create_notice" | "log_expense" | "create_complaint";
 
 export class AIToolService {
   private static instance: AIToolService;
-  private pool: Pool;
-  private redis: IORedis;
+  private pool = db;
+  private redis = redis;
   private isPostgresAvailable: boolean = true;
   private isRedisAvailable: boolean = true;
   private lastNetworkError: number = 0;
 
   private constructor() {
-    const connStr = process.env.DATABASE_URL;
-    const config: PoolConfig = { 
-      connectionString: connStr,
-      max: 10,
-      idleTimeoutMillis: 10000, // Faster pruning of potentially dead connections
-      connectionTimeoutMillis: 10000,
-      keepAlive: true, // V3.12: Hardened for Cloud DBs (Neon/Supabase)
-      ssl: connStr?.includes('localhost') 
-        ? false 
-        : { rejectUnauthorized: false }
-    };
-    this.pool = new Pool(config);
-    
-    // AI V3.12: Resilience Layer - catch pool-wide errors
-    this.pool.on("error", (err) => {
-      this.isPostgresAvailable = false;
-      this.lastNetworkError = Date.now();
-      logger.warn({ error: err.message }, "PostgreSQL Connection lost - Backend entering degraded mode");
-    });
-
-    // Periodic heartbeat (Silent during downtime)
-    setInterval(async () => {
-      try {
-        await this.pool.query('SELECT 1');
-        this.isPostgresAvailable = true;
-      } catch (err) {
-        if (this.isPostgresAvailable) {
-          logger.warn("PostgreSQL heartbeat failed - check network connection");
-          this.isPostgresAvailable = false;
-        }
-      }
-    }, 30000);
-
-    const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
-    // V3.12: Use options specifically for TLS handled by rediss://
-    this.redis = new IORedis(redisUrl, {
-      maxRetriesPerRequest: 3,
-      retryStrategy: (times: number) => Math.min(times * 50, 2000),
-      keepAlive: 10000,
-      tls: redisUrl.startsWith("rediss://") ? {} : undefined, // Explicit TLS for Upstash
-    });
-
-    // CRITICAL: Immediate error listener to prevent "Unhandled error event" crashes
-    this.redis.on("error", (err) => {
-      if (this.isRedisAvailable) {
-        logger.warn({ error: err.message }, "Redis connection unreachable - caching disabled");
-        this.isRedisAvailable = false;
-        this.lastNetworkError = Date.now();
-      }
-    });
-
-    this.redis.on("connect", () => {
-      if (!this.isRedisAvailable) {
-        logger.info("Redis connection restored");
-        this.isRedisAvailable = true;
-      }
-    });
+    // V3.12: Infrastructure initialization moved to shared singleton clients
+    // Redundant heartbeat loops removed to prevent connection exhaustion.
   }
 
   public static getInstance(): AIToolService {

@@ -7,7 +7,7 @@ import 'package:sero/providers/shared/ai_provider.dart';
 import 'package:sero/providers/shared/rules_provider.dart';
 
 // Modularized Widgets
-import 'widgets/rules_widgets.dart';
+import 'package:sero/screens/admin/rules/widgets/rules_widgets.dart';
 import 'package:sero/widgets/shared/branding_header.dart';
 import 'package:sero/widgets/shared/hero_header.dart';
 import 'package:sero/services/pdf_service.dart';
@@ -118,7 +118,7 @@ class _AdminRulesScreenState extends ConsumerState<AdminRulesScreen> {
   void _handleExportPdf(BuildContext context) async {
     final aiRules = ref.read(aiRulesProvider).value ?? [];
     final manualRules = ref.read(rulesProvider).value ?? [];
-    final societyName = 'Elite Society Hub';
+    final societyName = 'The Sero Community'; // Modernized name placeholder
 
     showDialog(
       context: context,
@@ -192,23 +192,16 @@ class _AdminRulesScreenState extends ConsumerState<AdminRulesScreen> {
         physics: const BouncingScrollPhysics(),
         slivers: [
           // ─── Header Section ──────────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const BrandingHeader(),
-                HeroHeader(
-                  title: 'Rules & Bylaws',
-                  label: 'GOVERNANCE CONSOLE',
-                  description: 'AI extracted regulations from society documents. Protocols are updated in real-time as bylaws are synced.',
-                  onRefresh: () {
-                    ref.invalidate(aiRulesProvider);
-                    ref.invalidate(rulesProvider);
-                    ref.invalidate(aiJobsProvider);
-                  },
-                ),
-              ],
-            ),
+          const BrandingHeader(),
+          HeroHeader(
+            title: 'Rules & Bylaws',
+            label: 'GOVERNANCE CONSOLE',
+            description: 'AI extracted regulations from society documents. Protocols are updated in real-time as bylaws are synced.',
+            onRefresh: () {
+              ref.invalidate(aiRulesProvider);
+              ref.invalidate(rulesProvider);
+              ref.invalidate(aiJobsProvider);
+            },
           ),
 
           // ─── Horizontal Metrics Bar ──────────────────────────────────────────
@@ -277,10 +270,3 @@ class _AdminRulesScreenState extends ConsumerState<AdminRulesScreen> {
     );
   }
 }
-
-
-
-
-
-
-

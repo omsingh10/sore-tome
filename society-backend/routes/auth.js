@@ -2,27 +2,148 @@ const express = require("express");
 const router = express.Router();
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, adminOnly, mainAdminOnly } = require("../middleware/auth");
 const { AuditLogService } = require("../src/services/AuditLogService");
 
 const JWT_SECRET = process.env.JWT_SECRET;
-const JWT_EXPIRES_IN = "30d";
+const JWT_EXPIRES_IN = "1h";
+const REFRESH_TOKEN_EXPIRES_IN = 7 * 24 * 60 * 60 * 1000; // 7 days in ms
+
+const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
+
+const { validate } = require("../src/middleware/validate");
+const { RegisterSchema, LoginSchema, RefreshTokenSchema } = require("../src/shared/schemas");
+
+// ─── REFRESH TOKEN ────────────────────────────────────────────────────────────
+// POST /auth/refresh
+// Body: { refreshToken }
+router.post("/refresh", validate(RefreshTokenSchema), async (req, res) => {
+    const { refreshToken } = req.body;
+    const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
+
+    try {
+        const db = getDb();
+        const tokenHash = hashToken(refreshToken);
+        const tokenDoc = await db.collection("refresh_tokens").doc(tokenHash).get();
+
+        if (!tokenDoc.exists) {
+            logger.warn({ ip }, "SEC-FAIL: Refresh token not found in DB");
+            return res.status(401).json({ error: "Invalid refresh token" });
+        }
+
+        const tokenData = tokenDoc.data();
+
+        // 🚨 REUSE DETECTION
+        if (tokenData.revoked) {
+            logger.alert({ ip, userId: tokenData.userId }, "SEC-CRITICAL: Refresh token reuse detected! Revoking all sessions.");
+            
+            // Revoke ALL sessions for this user
+            const allTokens = await db.collection("refresh_tokens")
+                .where("userId", "==", tokenData.userId)
+                .get();
+            
+            const batch = db.batch();
+            allTokens.forEach(doc => batch.delete(doc.ref));
+            await batch.commit();
+
+            return res.status(401).json({ error: "Session compromised. Please log in again." });
+        }
+
+        // Check expiration
+        const expiresAt = tokenData.expiresAt.toDate ? tokenData.expiresAt.toDate() : new Date(tokenData.expiresAt);
+        if (new Date() > expiresAt) {
+            logger.warn({ ip, userId: tokenData.userId }, "SEC-FAIL: Refresh token expired");
+            await tokenDoc.ref.delete();
+            return res.status(401).json({ error: "Refresh token expired" });
+        }
+
+        // Fetch user context
+        const userDoc = await db.collection("users").doc(tokenData.userId).get();
+        if (!userDoc.exists) {
+            return res.status(401).json({ error: "User no longer exists" });
+        }
+        const user = userDoc.data();
+
+        // 🔁 TOKEN ROTATION
+        const batch = db.batch();
+        batch.update(tokenDoc.ref, { revoked: true }); // Revoke old token
+
+        const newRefreshToken = crypto.randomBytes(40).toString("hex");
+        const newRefreshTokenHash = hashToken(newRefreshToken);
+
+        batch.set(db.collection("refresh_tokens").doc(newRefreshTokenHash), {
+            userId: userDoc.id,
+            expiresAt: getAdmin().firestore.Timestamp.fromDate(new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN)),
+            revoked: false,
+            createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+        });
+
+        await batch.commit();
+
+        const newAccessToken = jwt.sign(
+            { 
+                uid: userDoc.id, 
+                phone: user.phone, 
+                role: user.role, 
+                name: user.name,
+                society_id: user.society_id || "main_society" 
+            },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+        );
+
+        logger.info({ ip, userId: userDoc.id }, "Token rotated successfully");
+        res.json({ token: newAccessToken, refreshToken: newRefreshToken });
+
+    } catch (err) {
+        logger.error({ ip, error: err.message }, "Error during token refresh");
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+// ─── LOGOUT ───────────────────────────────────────────────────────────────────
+// POST /auth/logout
+router.post("/logout", validate(RefreshTokenSchema), async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+        const db = getDb();
+        const tokenHash = hashToken(refreshToken);
+        await db.collection("refresh_tokens").doc(tokenHash).delete();
+        res.json({ message: "Logged out successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Logout failed" });
+    }
+});
+
+// ─── LOGOUT ALL ───────────────────────────────────────────────────────────────
+// POST /auth/logout-all
+router.post("/logout-all", authMiddleware, async (req, res) => {
+    try {
+        const db = getDb();
+        const allTokens = await db.collection("refresh_tokens")
+            .where("userId", "==", req.user.uid)
+            .get();
+        
+        const batch = db.batch();
+        allTokens.forEach(doc => batch.delete(doc.ref));
+        await batch.commit();
+
+        logger.info({ userId: req.user.uid }, "All sessions revoked");
+        res.json({ message: "All sessions revoked successfully" });
+    } catch (err) {
+        res.status(500).json({ error: "Operation failed" });
+    }
+});
 
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
 // POST /auth/register
 // Body: { name, phone, password, flatNumber, blockName? }
-// Creates account with status = "pending". Admin must approve before login works.
-router.post("/register", async (req, res) => {
+// SECURITY: Strictly validated via Zod schemas.
+router.post("/register", validate(RegisterSchema), async (req, res) => {
     try {
         const { name, phone, password, flatNumber, blockName } = req.body;
-
-        if (!name || !phone || !password || !flatNumber) {
-            return res.status(400).json({ error: "name, phone, password and flatNumber are required" });
-        }
-        if (password.length < 6) {
-            return res.status(400).json({ error: "Password must be at least 6 characters" });
-        }
 
         const cleanPhone = phone.replace(/\s+/g, "");
         const db = getDb();
@@ -50,6 +171,9 @@ router.post("/register", async (req, res) => {
             maintenanceExempt: false,
             approvedAt: null,
             approvedBy: null,
+            // ── Phase 1.5: Attack Protection ────────────────
+            failedLoginAttempts: 0,
+            lockUntil: null,
         };
 
         await userRef.set(userData);
@@ -69,52 +193,88 @@ router.post("/register", async (req, res) => {
             message: "Registration submitted. Please wait for admin approval before logging in.",
         });
     } catch (err) {
-        console.error("Register error:", err);
-        res.status(500).json({ error: err.message });
+        logger.error({ ip: req.ip, error: err.message }, "Register error");
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
 // POST /auth/login
 // Body: { phone, password }
-router.post("/login", async (req, res) => {
-    try {
-        const { phone, password } = req.body;
-        if (!phone || !password) {
-            return res.status(400).json({ error: "phone and password are required" });
-        }
+// SECURITY: Strictly validated via Zod schemas.
+const DUMMY_HASH = "$2a$10$K9pYpYpYpYpYpYpYpYpYpOu9pYpYpYpYpYpYpYpYpYpYpYpYpYpYp"; // Placeholder hash for timing safety
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-        // ── NATIVE LOGIN (Firebase users collection) ──────────────────────────────
+router.post("/login", validate(LoginSchema), async (req, res) => {
+    const { phone, password } = req.body;
+    const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
+
+    try {
         const cleanPhone = phone.replace(/\s+/g, "");
         const db = getDb();
 
+        // 1. Fetch user (one-shot lookup)
         const snap = await db.collection("users").where("phone", "==", cleanPhone).limit(1).get();
-        if (snap.empty) {
+        const userDoc = snap.empty ? null : snap.docs[0];
+        const user = userDoc ? userDoc.data() : null;
+
+        // 2. Account Lockout Check
+        if (user && user.lockUntil) {
+            const lockUntil = user.lockUntil.toDate ? user.lockUntil.toDate() : new Date(user.lockUntil);
+            if (new Date() < lockUntil) {
+                logger.warn({ ip, userId: userDoc.id }, "SEC-FAIL: Login attempt on locked account");
+                return res.status(401).json({ error: "Invalid phone number or password" }); // Masked lockout
+            }
+        }
+
+        // 3. Progressive Delay Check
+        if (user && user.failedLoginAttempts >= 3) {
+            const delay = user.failedLoginAttempts === 3 ? 5000 : 30000;
+            logger.info({ ip, userId: userDoc.id, attempts: user.failedLoginAttempts }, `SEC-WARN: Applying progressive delay of ${delay}ms`);
+            await sleep(delay);
+        }
+
+        // 4. Constant-time Style Password Comparison
+        const hashToCompare = user ? user.password : DUMMY_HASH;
+        const passwordMatch = await bcrypt.compare(password, hashToCompare);
+
+        // 5. Handle Failure
+        if (!user || !passwordMatch) {
+            if (user) {
+                const newAttempts = (user.failedLoginAttempts || 0) + 1;
+                const updates = { failedLoginAttempts: newAttempts };
+                
+                if (newAttempts >= 5) {
+                    const lockTime = new Date(Date.now() + 15 * 60 * 1000); // 15 mins lock
+                    updates.lockUntil = getAdmin().firestore.Timestamp.fromDate(lockTime);
+                    logger.alert({ ip, userId: userDoc.id }, "SEC-ALERT: Account locked due to repeated failures");
+                }
+                
+                await userDoc.ref.update(updates);
+            }
+
+            logger.warn({ ip, phone: cleanPhone }, "SEC-FAIL: Login attempt failed");
             return res.status(401).json({ error: "Invalid phone number or password" });
         }
 
-        const userDoc = snap.docs[0];
-        const user = userDoc.data();
-
-        // Check approval status BEFORE checking password
+        // 6. Verify Status ONLY after successful password match
         if (user.status === "pending") {
-            return res.status(403).json({
+            return res.status(403).json({ 
                 error: "Your account is pending admin approval. You will be notified once approved.",
-                status: "pending",
+                status: "pending"
             });
         }
         if (user.status === "rejected") {
-            return res.status(403).json({
+            return res.status(403).json({ 
                 error: "Your registration was not approved. Please contact the society admin.",
-                status: "rejected",
+                status: "rejected"
             });
         }
 
-        const passwordMatch = await bcrypt.compare(password, user.password);
-        if (!passwordMatch) {
-            return res.status(401).json({ error: "Invalid phone number or password" });
-        }
+        // Reset security counters on success
+        await userDoc.ref.update({ failedLoginAttempts: 0, lockUntil: null });
 
+        // 7. Issue JWT + Refresh Token
         const token = jwt.sign(
             { 
                 uid: userDoc.id, 
@@ -127,11 +287,24 @@ router.post("/login", async (req, res) => {
             { expiresIn: JWT_EXPIRES_IN }
         );
 
+        const refreshToken = crypto.randomBytes(40).toString("hex");
+        const refreshTokenHash = hashToken(refreshToken);
+
+        await db.collection("refresh_tokens").doc(refreshTokenHash).set({
+            userId: userDoc.id,
+            expiresAt: getAdmin().firestore.Timestamp.fromDate(new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN)),
+            revoked: false,
+            createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+        });
+
+        logger.info({ ip, userId: userDoc.id }, "Login successful with refresh token");
+
         const { password: _, ...safeUser } = user;
-        res.json({ token, user: safeUser });
+        res.json({ token, refreshToken, user: safeUser });
+
     } catch (err) {
-        console.error("Login error:", err);
-        res.status(500).json({ error: err.message });
+        logger.error({ ip, error: err.message }, "Unhandled error during login");
+        res.status(500).json({ error: "Internal server error" });
     }
 });
 

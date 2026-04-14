@@ -1,13 +1,11 @@
-import IORedis from "ioredis";
+import { redis } from "../../shared/Redis";
 import { logger } from "../../shared/Logger";
 
 export class AIRateLimitingService {
   private static instance: AIRateLimitingService;
-  private redis: IORedis;
+  private redis = redis;
 
-  private constructor() {
-    this.redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
-  }
+  private constructor() {}
 
   public static getInstance(): AIRateLimitingService {
     if (!AIRateLimitingService.instance) {

@@ -2,6 +2,11 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/services/api_service.dart';
 import 'package:sero/models/notice.dart';
+import 'package:sero/services/firestore_service.dart';
+
+final noticesStreamProvider = StreamProvider<List<Notice>>((ref) {
+  return FirestoreService().getNoticesStream();
+});
 
 final noticesProvider = StateNotifierProvider<NoticesNotifier, AsyncValue<List<Notice>>>((ref) {
   return NoticesNotifier();

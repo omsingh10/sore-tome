@@ -6,8 +6,6 @@ import 'package:sero/app/theme.dart';
 import 'package:sero/services/ai_service.dart';
 
 // Modularized Widgets
-import 'package:sero/widgets/shared/branding_header.dart';
-import 'widgets/concierge_hero.dart';
 import 'widgets/quick_action_tiles.dart';
 import 'widgets/concierge_bubble.dart';
 import 'widgets/input_console.dart';
@@ -16,8 +14,14 @@ import 'package:sero/services/firestore_service.dart';
 class AiChatScreen extends StatefulWidget {
   final String? initialMessage;
   final Map<String, dynamic>? initialContext;
+  final String userRole; // 'resident' or 'admin'
 
-  const AiChatScreen({super.key, this.initialMessage, this.initialContext});
+  const AiChatScreen({
+    super.key, 
+    this.initialMessage, 
+    this.initialContext,
+    this.userRole = 'resident',
+  });
 
   @override
   State<AiChatScreen> createState() => _AiChatScreenState();
@@ -111,7 +115,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
     final data = await _aiService.sendMessage(
       text,
       base64Image: currentBase64,
-      context: context,
+      context: {
+        ...(context ?? {}),
+        'userRole': widget.userRole,
+      },
     );
     if (!mounted) return;
     setState(() {
@@ -143,9 +150,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
             controller: _scrollCtrl,
             physics: const BouncingScrollPhysics(),
             slivers: [
-              const BrandingHeader(),
-              const ConciergeHero(),
-               QuickActionTiles(onAction: (prompt, key) async {
+               const SliverToBoxAdapter(child: SizedBox(height: 24)),
+               QuickActionTiles(
+                 userRole: widget.userRole,
+                 onAction: (prompt, key) async {
                 Map<String, dynamic>? context;
                 if (key == 'financials') {
                   final summary = await _firestore.getFundSummary();
@@ -173,6 +181,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
                       message: msg,
                       isUser: msg['role'] == 'user',
                       aiService: _aiService,
+                      userRole: widget.userRole,
                       onActionExecuted: () => setState(() {}),
                     );
                   }, childCount: _messages.length),

@@ -316,6 +316,7 @@ class _AdminIssuesScreenState extends ConsumerState<AdminIssuesScreen> {
               builder: (context) => const AiChatScreen(
                 initialMessage: 'Summarize current complaints and suggest actions',
                 initialContext: {'screen': 'issues'},
+                userRole: 'admin',
               ),
             ),
           );

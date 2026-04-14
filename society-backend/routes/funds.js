@@ -1,11 +1,12 @@
-const express = require("express");
-const router = express.Router();
-const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageFunds } = require("../middleware/auth");
 const { AuditLogService } = require("../src/services/AuditLogService");
+const { logger } = require("../src/shared/Logger");
+const { validate } = require("../src/middleware/validate");
+const { CreateTransactionSchema } = require("../src/shared/schemas");
 
 // GET /funds — current month summary
 router.get("/", authMiddleware, async (req, res) => {
+  const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
     const db = getDb();
     const snap = await db.collection("funds").orderBy("createdAt", "desc").limit(12).get();
@@ -19,12 +20,14 @@ router.get("/", authMiddleware, async (req, res) => {
     });
     res.json({ funds });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error({ ip, error: err.message }, "Error fetching funds");
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // GET /funds/transactions — recent transactions ledger
 router.get("/transactions", authMiddleware, async (req, res) => {
+  const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
     const db = getDb();
     const snap = await db
@@ -42,22 +45,17 @@ router.get("/transactions", authMiddleware, async (req, res) => {
     });
     res.json({ transactions });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    logger.error({ ip, error: err.message }, "Error fetching transactions");
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
 // POST /funds/transactions — admin only: add a transaction
 // Body: { title, amount, type, category, note, transactionId }
-router.post("/transactions", authMiddleware, canManageFunds, async (req, res) => {
+router.post("/transactions", authMiddleware, canManageFunds, validate(CreateTransactionSchema), async (req, res) => {
+  const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
     const { title, amount, type, note, category, transactionId } = req.body;
-    if (!title || !amount || !type)
-      return res.status(400).json({ error: "title, amount, and type are required" });
-    if (!["credit", "debit"].includes(type))
-      return res.status(400).json({ error: "type must be credit or debit" });
-    if (isNaN(amount) || Number(amount) <= 0)
-      return res.status(400).json({ error: "amount must be a positive number" });
-
     const db = getDb();
     const docRef = await db.collection("transactions").add({
       title,

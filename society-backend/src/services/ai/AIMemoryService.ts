@@ -1,16 +1,14 @@
-import IORedis from "ioredis";
+import { redis } from "../../shared/Redis";
 import { logger } from "../../shared/Logger";
 import { VectorStoreService } from "./VectorStoreService";
 import { Document } from "@langchain/core/documents";
 
 export class AIMemoryService {
   private static instance: AIMemoryService;
-  private redis: IORedis;
+  private redis = redis;
   private readonly TTL = 3600; // 1 hour for short-term
 
-  private constructor() {
-    this.redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
-  }
+  private constructor() {}
 
   public static getInstance(): AIMemoryService {
     if (!AIMemoryService.instance) {

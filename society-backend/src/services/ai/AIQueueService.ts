@@ -2,7 +2,7 @@ import { Queue, Worker, Job, QueueEvents } from "bullmq";
 import { ParserService } from "./ParserService";
 import { VectorStoreService } from "./VectorStoreService";
 import { logger } from "../../shared/Logger";
-import IORedis from "ioredis";
+import { redis } from "../../shared/Redis";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -16,13 +16,10 @@ export type AITaskType = "DOC_INGESTION" | "BULK_EXTRACTION" | "EMBEDDING_GENERA
 export class AIQueueService {
   private static instance: AIQueueService;
   private queue: Queue;
-  private connection: IORedis;
+  private connection = redis;
   private queueEvents: QueueEvents;
 
   private constructor() {
-    this.connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-      maxRetriesPerRequest: null,
-    });
     this.queue = new Queue("ai-production-queue", {
       connection: this.connection,
       defaultJobOptions: {

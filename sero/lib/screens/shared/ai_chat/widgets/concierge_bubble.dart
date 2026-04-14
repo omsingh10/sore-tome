@@ -9,6 +9,7 @@ class ConciergeBubble extends StatelessWidget {
   final Map<String, dynamic> message;
   final bool isUser;
   final AiService aiService;
+  final String userRole;
   final VoidCallback onActionExecuted;
 
   const ConciergeBubble({
@@ -16,11 +17,13 @@ class ConciergeBubble extends StatelessWidget {
     required this.message,
     required this.isUser,
     required this.aiService,
+    required this.userRole,
     required this.onActionExecuted,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isAdmin = userRole == 'admin';
     final content =
         message['reply'] ??
         message['content'] ??
@@ -87,19 +90,19 @@ class ConciergeBubble extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(
-                Icons.smart_toy_rounded,
+              Icon(
+                isAdmin ? Icons.hub_rounded : Icons.smart_toy_rounded,
                 size: 16,
-                color: kPrimaryGreen,
+                color: isAdmin ? const Color(0xFF1E293B) : kPrimaryGreen,
               ),
               const SizedBox(width: 8),
               Text(
-                'SERO AI',
+                isAdmin ? 'COMMAND AI' : 'SERO AI',
                 style: GoogleFonts.outfit(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1,
-                  color: kPrimaryGreen,
+                  color: isAdmin ? const Color(0xFF1E293B) : kPrimaryGreen,
                 ),
               ),
             ],
