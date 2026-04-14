@@ -1,0 +1,257 @@
+[
+  {
+    "collection": "issues",
+    "docId": "HHkqRCOGYJzMx2sqbDio",
+    "original_data": {
+      "title": "Chat Sync: Issue from Society Main Admin",
+      "description": "lift is not wokring",
+      "status": "open",
+      "priority": "medium",
+      "postedBy": "admin-001",
+      "location": "Admin-Office",
+      "source": "chat_conversion",
+      "sourceChannelId": "0HZn9sA0311iFYKJN6VO",
+      "sourceMessageId": "GoKAZevg3X6uPiCFXkGU",
+      "createdAt": {
+        "_seconds": 1775665682,
+        "_nanoseconds": 277000000
+      },
+      "updatedAt": {
+        "_seconds": 1775665682,
+        "_nanoseconds": 277000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.731Z"
+  },
+  {
+    "collection": "issues",
+    "docId": "Iy5MycCNRM3Py4SFkCGi",
+    "original_data": {
+      "title": "Chat Sync: Issue from Society Main Admin",
+      "description": "lift is not working",
+      "status": "open",
+      "priority": "medium",
+      "postedBy": "admin-001",
+      "location": "Admin-Office",
+      "source": "chat_conversion",
+      "sourceChannelId": "0HZn9sA0311iFYKJN6VO",
+      "sourceMessageId": "4hjBFhfxAAeEG2CKSC96",
+      "createdAt": {
+        "_seconds": 1775666154,
+        "_nanoseconds": 858000000
+      },
+      "updatedAt": {
+        "_seconds": 1775666154,
+        "_nanoseconds": 858000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.731Z"
+  },
+  {
+    "collection": "issues",
+    "docId": "SZvX5ePrmh9Twhtfnq1p",
+    "original_data": {
+      "title": "lift is not working",
+      "description": "lift not working",
+      "category": "other",
+      "priority": "medium",
+      "status": "open",
+      "postedBy": "admin-001",
+      "postedByName": "Society Main Admin",
+      "createdAt": {
+        "_seconds": 1775661442,
+        "_nanoseconds": 807000000
+      },
+      "updatedAt": {
+        "_seconds": 1775661442,
+        "_nanoseconds": 807000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.731Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "5fi1fShoMpZpUQPQETkL",
+    "original_data": {
+      "type": "registration_approved",
+      "title": "Registration approved!",
+      "body": "Welcome to the society, taiyo! You can now log in to the app.",
+      "targetUserId": "ycWjDjQRzICHbey0Xy86",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775893877,
+        "_nanoseconds": 779000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "5x1DleYeoiIyduTRiuHQ",
+    "original_data": {
+      "type": "registration_request",
+      "title": "New registration request",
+      "body": "olo from Flat S-101, Block A wants to join.",
+      "targetRole": "admin",
+      "userId": "ZlYw8lyufUbExkeA4tTv",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775034445,
+        "_nanoseconds": 570000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "ECidCOtZIncQ73CKEUoU",
+    "original_data": {
+      "type": "registration_approved",
+      "title": "Registration approved!",
+      "body": "Welcome to the society, taiyo! You can now log in to the app.",
+      "targetUserId": "8Lm9vDSenHMyIqcJlHAv",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775893864,
+        "_nanoseconds": 402000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "NU6jPtxuwYeINi7Ltub0",
+    "original_data": {
+      "type": "registration_approved",
+      "title": "Registration approved!",
+      "body": "Welcome to the society, raj! You can now log in to the app.",
+      "targetUserId": "ntLZhzfE8kDHTkwnj4CM",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775893877,
+        "_nanoseconds": 290000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "TstRQZeZbtmEfeDwqbV6",
+    "original_data": {
+      "type": "registration_request",
+      "title": "New registration request",
+      "body": "raj from Flat c-101 wants to join.",
+      "targetRole": "admin",
+      "userId": "ntLZhzfE8kDHTkwnj4CM",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775120494,
+        "_nanoseconds": 559000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "cLDOXoIgbVuBDSdEUxDe",
+    "original_data": {
+      "type": "registration_request",
+      "title": "New registration request",
+      "body": "taiyo from Flat 101, Block b wants to join.",
+      "targetRole": "admin",
+      "userId": "ycWjDjQRzICHbey0Xy86",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775889354,
+        "_nanoseconds": 304000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "nSDzh6NXeyi3cSIqw2Vq",
+    "original_data": {
+      "type": "registration_approved",
+      "title": "Registration approved!",
+      "body": "Welcome to the society, sahil! You can now log in to the app.",
+      "targetUserId": "8cYyBKLMP3OWMv6zLqLM",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775893876,
+        "_nanoseconds": 740000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "nz7ewMIoWomvl7P29CZE",
+    "original_data": {
+      "type": "registration_request",
+      "title": "New registration request",
+      "body": "sahil from Flat c-l02 wants to join.",
+      "targetRole": "admin",
+      "userId": "8cYyBKLMP3OWMv6zLqLM",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775120248,
+        "_nanoseconds": 257000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "notifications",
+    "docId": "wdOv5rT2ITGDBJAjt3Bw",
+    "original_data": {
+      "type": "registration_request",
+      "title": "New registration request",
+      "body": "taiyo from Flat 201, Block c wants to join.",
+      "targetRole": "admin",
+      "userId": "8Lm9vDSenHMyIqcJlHAv",
+      "read": false,
+      "createdAt": {
+        "_seconds": 1775892707,
+        "_nanoseconds": 504000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:18.919Z"
+  },
+  {
+    "collection": "channels",
+    "docId": "0HZn9sA0311iFYKJN6VO",
+    "original_data": {
+      "name": "one pieace",
+      "description": "",
+      "isReadOnly": false,
+      "allowedRoles": [
+        "resident",
+        "admin"
+      ],
+      "createdBy": "admin-001",
+      "createdAt": {
+        "_seconds": 1775588008,
+        "_nanoseconds": 145000000
+      },
+      "updatedAt": {
+        "_seconds": 1775634797,
+        "_nanoseconds": 368000000
+      }
+    },
+    "assigned_societyId": "legacy_society",
+    "timestamp": "2026-04-14T18:55:19.029Z"
+  }
+]
