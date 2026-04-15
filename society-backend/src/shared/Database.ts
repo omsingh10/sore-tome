@@ -8,14 +8,21 @@ class Database {
 
   private constructor() {
     const connStr = process.env.DATABASE_URL;
+
+    if (!connStr) {
+      console.error("\n❌ CRITICAL ERROR: DATABASE_URL environment variable is missing!");
+      throw new Error("Targeted Failure: Database Configuration Incomplete");
+    }
+
     const config: PoolConfig = {
       connectionString: connStr,
-      max: 20, // Baseline cap for stability
+      max: 10, // Hardened pool cap
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
       keepAlive: true,
-      ssl: connStr?.includes("localhost") ? false : { rejectUnauthorized: false },
+      ssl: connStr.includes("localhost") ? false : { rejectUnauthorized: false },
     };
+
 
     this.pool = new Pool(config);
 

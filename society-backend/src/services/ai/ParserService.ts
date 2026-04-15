@@ -4,8 +4,11 @@ import { Document } from "@langchain/core/documents";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 import { OpenAIEmbeddings } from "@langchain/openai";
 import { logger } from "../../shared/Logger";
+// @ts-ignore
 import { createWorker } from "tesseract.js";
+// @ts-ignore
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
+// @ts-ignore
 import { createCanvas } from "canvas";
 import dotenv from "dotenv";
 
@@ -159,9 +162,9 @@ export class ParserService {
         });
       }
 
-      // 3. Heading-Aware Semantic Chunking
+      // 3. Strict Chunking (Phase 3 Constraints)
       if (onProgress && textDensity >= 100) onProgress(60); // Starting chunking
-      const chunks = await this.semanticChunking(fullText, 0.85);
+      const chunks = await this.safeChunking(fullText);
       if (onProgress) onProgress(90); // Chunks generated
 
       const result = chunks.map((content, idx) => new Document({
@@ -228,64 +231,18 @@ export class ParserService {
   }
 
   /**
-   * Heading-Aware Semantic Chunking implementation.
+   * Safe chunking implementation (Phase 3 Strict Rules)
+   * Size: 500-1000 characters
+   * Overlap: 10-20% (100 characters max) to maintain context boundaries
    */
-  private async semanticChunking(text: string, threshold: number): Promise<string[]> {
-    const rawLines = text.split("\n");
-    const sectors: string[] = [];
-    let currentSector = "";
-
-    // Grouping by physical headings first
-    for (const line of rawLines) {
-      if (HEADING_REGEX.test(line.trim()) && currentSector.length > 500) {
-        sectors.push(currentSector.trim());
-        currentSector = line + "\n";
-      } else {
-        currentSector += line + "\n";
-      }
-    }
-    sectors.push(currentSector.trim());
-
-    // Applying semantic split on each sector
-    const finalChunks: string[] = [];
-    for (const sector of sectors) {
-      if (sector.length < 1000) {
-        finalChunks.push(sector);
-        continue;
-      }
-
-      const sentenceSplitter = new RecursiveCharacterTextSplitter({
-        chunkSize: 500,
-        chunkOverlap: 50,
-      });
-      const sentences = await sentenceSplitter.splitText(sector);
-      if (sentences.length <= 1) {
-        finalChunks.push(sector);
-        continue;
-      }
-
-      const embeddings = await this.embeddings.embedDocuments(sentences);
-      let currentChunk = [sentences[0]];
-
-      for (let i = 1; i < sentences.length; i++) {
-        const similarity = this.cosineSimilarity(embeddings[i - 1], embeddings[i]);
-        if (similarity < threshold) {
-          finalChunks.push(currentChunk.join(" ").trim());
-          currentChunk = [sentences[i]];
-        } else {
-          currentChunk.push(sentences[i]);
-        }
-      }
-      finalChunks.push(currentChunk.join(" ").trim());
-    }
-
-    return finalChunks;
+  private async safeChunking(text: string): Promise<string[]> {
+    const sentenceSplitter = new RecursiveCharacterTextSplitter({
+      chunkSize: 800, // Safe spot between 500-1000 limit
+      chunkOverlap: 150, // Approx 15-20% 
+    });
+    
+    // Fallback cleanup to remove absolutely empty/junk blocks
+    const rawChunks = await sentenceSplitter.splitText(text);
+    return rawChunks.map(c => c.trim()).filter(c => c.length > 50);
   }
 
-  private cosineSimilarity(vecA: number[], vecB: number[]): number {
-    const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-    const magA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-    const magB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-    return dotProduct / (magA * magB);
-  }
-}

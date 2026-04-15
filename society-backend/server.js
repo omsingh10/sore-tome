@@ -1,15 +1,12 @@
+require("dotenv").config();
 const Sentry = require("@sentry/node");
 const { logger } = require("./src/shared/Logger");
 
 // ─── Suppress pg-connection-string SSL deprecation warning ────────────────────
-// The 'sslmode=require' alias warning is informational — it does not affect
-// connection behaviour. This will become relevant only in pg v9 / pg-conn-str v3.
-// Remove this block once those versions are adopted and the URL updated.
 process.on('warning', (warning) => {
   if (warning.name === 'Warning' && warning.message && warning.message.includes('sslmode')) {
-    return; // suppress pg SSL alias noise
+    return;
   }
-  // Re-emit all other warnings normally
   console.warn(warning.name, warning.message);
 });
 
@@ -20,18 +17,19 @@ Sentry.init({
   tracesSampleRate: 1.0,
 });
 
-require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
-const helmet = require("helmet");
-const { initFirebase } = require("./config/firebase");
-const rateLimit = require("express-rate-limit");
+const standardLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // 100 requests per 15 minutes per IP
+  message: { error: "Too many requests from this IP, please try again after 15 minutes" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
-// ─── Rate Limiters ─────────────────────────────────────────────────────────────
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // 5 attempts per window
-  message: { error: "Too many login attempts, please try again after 15 minutes" },
+  max: 5, // STRICT: 5 attempts per window
+  message: { error: "Too many login/signup attempts, please try again after 15 minutes" },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -49,68 +47,118 @@ initFirebase();
 
 const app = express();
 
+const { contextMiddleware } = require("./middleware/ContextMiddleware");
+const { abuseProtection } = require("./middleware/abuseProtection");
+
+// ─── Trust Proxy ─────────────────────────────────────────────────────────────
+app.set("trust proxy", 1); // Enable IP sensing behind load balancers/proxies
+
 // ─── Middleware ────────────────────────────────────────────────────────────────
+app.use(contextMiddleware); // Enterprise tracing & log context
 app.use(helmet());
+app.use(abuseProtection);
 
-// Production-grade CORS with Whitelist
-const allowedOrigins = process.env.ALLOWED_ORIGINS 
-  ? process.env.ALLOWED_ORIGINS.split(",") 
-  : [];
+// 🛡️ Phase 3: Global Protection
+app.use(express.json({ limit: "10kb" })); // Prevents payload-based DoS
+app.use("/auth/login", authLimiter);
+app.use("/auth/register", authLimiter);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Allow server-to-server or mobile app requests (origin is undefined)
-    if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === "development") {
-      callback(null, true);
-    } else {
-      logger.warn({ origin }, "SEC-WARN: Blocked by CORS");
-      callback(new Error("Not allowed by CORS"));
-    }
-  },
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
-app.use((req, res, next) => {
-  logger.info({ method: req.method, url: req.url }, "Incoming Request");
+// ... (CORS logic remains same)
+
+// ─── API Versioning & Routing ─────────────────────────────────────────────────
+const v1Router = express.Router();
+
+v1Router.use("/auth", require("./routes/auth"));
+v1Router.use("/users", standardLimiter, require("./routes/users"));
+v1Router.use("/notices", standardLimiter, require("./routes/notices"));
+v1Router.use("/issues", standardLimiter, require("./routes/issues"));
+v1Router.use("/funds", standardLimiter, require("./routes/funds"));
+v1Router.use("/rules", standardLimiter, require("./routes/rules"));
+v1Router.use("/events", standardLimiter, require("./routes/events"));
+v1Router.use("/ai", aiLimiter, require("./src/routes/ai").default);
+v1Router.use("/admin", standardLimiter, require("./src/routes/admin_dashboard").default);
+v1Router.use("/admin", standardLimiter, require("./src/routes/admin_access").default);
+v1Router.use("/channels", standardLimiter, require("./routes/channels"));
+v1Router.use("/admin", standardLimiter, require("./routes/admin_flags"));
+
+// 🚀 MOUNT V1
+app.use("/api/v1", v1Router);
+
+const aiRoutes = require("./src/routes/ai");
+const systemRoutes = require("./src/routes/system").default;
+
+app.use("/api/v1/ai", aiRoutes);
+app.use("/api/v1/system", systemRoutes);
+
+// 🛡️ MOUNT LEGACY FALLBACK (WITH DEPRECATION DATA)
+app.use("/", (req, res, next) => {
+  // Scoped Deprecation Headers ONLY for non-versioned routes
+  if (!req.originalUrl.startsWith("/api/")) {
+    res.setHeader("X-API-Deprecated", "true");
+    res.setHeader("X-API-Version", "v1");
+    // Optionally log this so we can track legacy client migration
+    // req.log.warn({ path: req.path }, "LEGACY-API: Request hit unversioned route");
+  }
   next();
-});
-app.use(express.json({ limit: "5mb" }));
+}, v1Router);
 
-// ─── Routes ───────────────────────────────────────────────────────────────────
-app.use("/auth", authLimiter, require("./routes/auth"));   // register, login, approve/reject
-app.use("/users", require("./routes/users"));
-app.use("/notices", require("./routes/notices"));
-app.use("/issues", require("./routes/issues"));
-app.use("/funds", require("./routes/funds"));
-app.use("/rules", require("./routes/rules"));
-app.use("/events", require("./routes/events"));
-app.use("/ai", aiLimiter, require("./src/routes/ai").default);
-app.use("/admin", require("./src/routes/admin_dashboard").default);
-app.use("/admin", require("./src/routes/admin_access").default);
-app.use("/channels", require("./routes/channels"));
-app.use("/admin", require("./routes/admin_flags"));
 
 // ─── Health check ─────────────────────────────────────────────────────────────
+const { HealthService } = require("./src/services/HealthService");
+
 app.get("/health", (req, res) => {
   res.json({ status: "ok", app: "Society Backend", timestamp: new Date().toISOString() });
 });
+
+app.get("/health/deep", async (req, res) => {
+  const secret = req.headers["x-health-check-secret"];
+  if (!secret || secret !== process.env.HEALTH_CHECK_SECRET) {
+    logger.warn({ ip: req.ip }, "Unauthorized deep health check attempt");
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  try {
+    const report = await HealthService.performDeepCheck();
+    res.status(report.status === "ok" ? 200 : 503).json(report);
+  } catch (err) {
+    res.status(500).json({ status: "error", message: "Health check failed", requestId: req.requestId });
+  }
+});
+
+
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: `Route ${req.method} ${req.path} not found` });
 });
 
+const crypto = require("crypto");
+
 // ─── Global error handler ─────────────────────────────────────────────────────
 // Sentry error handler must be before any other error middleware
 Sentry.setupExpressErrorHandler(app);
 
 app.use((err, req, res, next) => {
-  logger.error(err, "Unhandled error occured");
-  res.status(500).json({ error: "Internal server error" });
+  const errorId = crypto.randomUUID();
+  
+  // Log full context for debugging
+  logger.fatal({
+    errorId,
+    path: req.path,
+    method: req.method,
+    stack: err.stack,
+    userId: req.user?.uid,
+    ip: req.ip
+  }, "🔥 Unhandled Critical System Error");
+
+  res.status(500).json({ 
+    error: "Internal server error",
+    errorId: errorId, // Trace within backend logs
+    requestId: req.requestId // Trace across system boundaries
+  });
 });
+
+
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;

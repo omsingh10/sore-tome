@@ -4,6 +4,7 @@ import { ChatCerebras } from "@langchain/cerebras";
 import { Runnable, RunnableConfig } from "@langchain/core/runnables";
 import { logger } from "../../shared/Logger";
 import { redis } from "../../shared/Redis";
+import { CircuitBreaker, CircuitState } from "../../shared/CircuitBreaker";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -24,12 +25,18 @@ const PROVIDER_METADATA: Record<string, ProviderMetadata> = {
   "@cf/meta/llama-3.1-8b-instruct": { name: "Cloudflare", costPer1MInput: 0.05, costPer1MOutput: 0.05 },
 };
 
+type ProviderId = "groq" | "cerebras" | "cloudflare";
+
 export class ProviderService {
   private static instance: ProviderService;
   private redis = redis;
-  private readonly CB_PREFIX = "circuit_breaker:provider:";
-  private readonly CB_THRESHOLD = 3;
-  private readonly CB_COOLDOWN = 60; // seconds
+  
+  // Enterprise Breakers per Provider
+  private breakers: Record<ProviderId, CircuitBreaker> = {
+    groq: new CircuitBreaker("Groq-LLM", { failureThreshold: 3, cooldownPeriodMs: 60000 }),
+    cerebras: new CircuitBreaker("Cerebras-LLM", { failureThreshold: 3, cooldownPeriodMs: 60000 }),
+    cloudflare: new CircuitBreaker("Cloudflare-AI", { failureThreshold: 5, cooldownPeriodMs: 30000 }),
+  };
 
   private constructor() {}
 
@@ -38,20 +45,6 @@ export class ProviderService {
       ProviderService.instance = new ProviderService();
     }
     return ProviderService.instance;
-  }
-
-  private async isAvailable(providerId: string): Promise<boolean> {
-    const key = `${this.CB_PREFIX}${providerId}`;
-    const failures = await this.redis.get(key);
-    return !failures || parseInt(failures) < this.CB_THRESHOLD;
-  }
-
-  private async reportFailure(providerId: string) {
-    const key = `${this.CB_PREFIX}${providerId}`;
-    const failures = await this.redis.incr(key);
-    if (failures === 1) {
-      await this.redis.expire(key, this.CB_COOLDOWN);
-    }
   }
 
   /**
@@ -63,7 +56,7 @@ export class ProviderService {
   ): Promise<Runnable> {
     const startTime = Date.now();
 
-    // 1. Define Model Instances (Free Tiers Only)
+    // 1. Define Model Instances
     const models = {
       groq: taskType === "EXTRACTION" 
         ? new ChatGroq({ apiKey: process.env.GROQ_API_KEY, model: "llama-3.3-70b-versatile", temperature: 0 })
@@ -78,67 +71,73 @@ export class ProviderService {
       }),
     };
 
-    // 2. Dynamic Fallback Chain based on Availability
-    const chainIds = ["groq", "cerebras", "cloudflare"];
-    const activeChain: Runnable[] = [];
+    // 2. Dynamic Fallback Chain based on Enterprise Circuit Breakers
+    const providerIds: ProviderId[] = ["groq", "cerebras", "cloudflare"];
+    const activeProviders: { id: ProviderId; model: any }[] = [];
 
-    for (const id of chainIds) {
-      if (await this.isAvailable(id)) {
-        activeChain.push((models as any)[id]);
+    for (const id of providerIds) {
+      const breaker = this.breakers[id];
+      // Allow if CLOSED or HALF_OPEN (test request)
+      if (breaker.getState() !== CircuitState.OPEN) {
+        activeProviders.push({ id, model: (models as any)[id] });
       }
     }
 
-    if (activeChain.length === 0) {
-      logger.warn(context, "All providers down! Falling back to emergency Cloudflare");
-      activeChain.push(models.cloudflare);
+    if (activeProviders.length === 0) {
+      logger.fatal(context, "🚨 All AI Providers Tripped! Falling back to emergency Cloudflare (Unprotected)");
+      activeProviders.push({ id: "cloudflare", model: models.cloudflare });
     }
 
+    const primary = activeProviders[0];
+    const fallbacks = activeProviders.slice(1).map(p => p.model);
 
-    const primary = activeChain[0];
-    const fallbacks = activeChain.slice(1);
+    const resilientModel = primary.model.withFallbacks({ fallbacks });
 
-    const resilientModel = primary.withFallbacks({ fallbacks });
-
-    // 3. Wrapped Invoke for Logging & Cost Tracking
+    // 3. Wrapped Invoke for Logging, Cost Tracking & Circuit Breaker Execution
     const originalInvoke = resilientModel.invoke.bind(resilientModel);
     
-    resilientModel.invoke = async (input, options?: RunnableConfig) => {
-      try {
-        const result = await originalInvoke(input, options);
-        const duration = Date.now() - startTime;
-        
-        let modelName = "unknown";
-        let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+    resilientModel.invoke = async (input: any, options?: RunnableConfig) => {
+      // Execute through the breaker of the currently active primary
+      const breaker = this.breakers[primary.id];
 
-        // Attempt to extract usage and model info from metadata
-        if ((result as any).response_metadata) {
-          const meta = (result as any).response_metadata;
-          modelName = meta.model_name || meta.modelId || "unknown";
-          usage = meta.tokenUsage || meta.usage || usage;
+      return await breaker.execute(async () => {
+
+        try {
+          const result = await originalInvoke(input, options);
+          const duration = Date.now() - startTime;
+          
+          let modelName = "unknown";
+          let usage = { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 };
+
+          if ((result as any).response_metadata) {
+            const meta = (result as any).response_metadata;
+            modelName = meta.model_name || meta.modelId || "unknown";
+            usage = meta.tokenUsage || meta.usage || usage;
+          }
+
+          const metadata = PROVIDER_METADATA[modelName] || { name: "Unknown", costPer1MInput: 0, costPer1MOutput: 0 };
+          const cost = (usage.prompt_tokens * metadata.costPer1MInput + usage.completion_tokens * metadata.costPer1MOutput) / 1000000;
+
+          logger.info({
+            ...context,
+            provider: metadata.name,
+            model: modelName,
+            latency_ms: duration,
+            tokens: usage.total_tokens,
+            cost_usd: cost.toFixed(6),
+            status: "success"
+          }, "AI Gateway Request Successful");
+
+          return result;
+        } catch (error: any) {
+          logger.error({
+            ...context,
+            error: error.message,
+            status: "failed"
+          }, "AI Gateway Request Failed");
+          throw error;
         }
-
-        const metadata = PROVIDER_METADATA[modelName] || { name: "Unknown", costPer1MInput: 0, costPer1MOutput: 0 };
-        const cost = (usage.prompt_tokens * metadata.costPer1MInput + usage.completion_tokens * metadata.costPer1MOutput) / 1000000;
-
-        logger.info({
-          ...context,
-          provider: metadata.name,
-          model: modelName,
-          latency_ms: duration,
-          tokens: usage.total_tokens,
-          cost_usd: cost.toFixed(6),
-          status: "success"
-        }, "AI Gateway Request Successful");
-
-        return result;
-      } catch (error: any) {
-        logger.error({
-          ...context,
-          error: error.message,
-          status: "failed"
-        }, "AI Gateway Request Failed");
-        throw error;
-      }
+      });
     };
 
     return resilientModel;
@@ -155,3 +154,4 @@ export class ProviderService {
     });
   }
 }
+

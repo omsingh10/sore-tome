@@ -76,3 +76,13 @@ export const MediaUploadSchema = z.object({
     messageId: z.string().optional(),
   }).strict()
 });
+
+// Notices Schemas
+export const CreateNoticeSchema = z.object({
+  body: z.object({
+    title: sanitizedString.max(200),
+    body: sanitizedString.max(5000),
+    type: z.enum(["general", "event", "maintenance", "festival"]).default("general"),
+  }).strict()
+});
+

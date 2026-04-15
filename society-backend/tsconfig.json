@@ -10,7 +10,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "baseUrl": ".",
+    "resolveJsonModule": true,
     "typeRoots": ["./node_modules/@types"]
   },
   "include": ["src/**/*", "server.js"],

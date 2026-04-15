@@ -2,16 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Global function to check if user is authenticated and belongs to the society
+    // Global function to check if user is authenticated
     function isAuthenticated() {
       return request.auth != null;
     }
 
+    // ❗ PRO FIX: Strict Tenant Isolation
+    // Matches the snake_case 'society_id' used in our JWT claims and schemas.
     function isSameSociety(data) {
-      return data.societyId == request.auth.token.societyId;
+      return data.society_id == request.auth.token.society_id;
     }
 
-    // Tenant Isolation Pattern: All collections must be partitioned by societyId
+    // Tenant Isolation Pattern: All collections must be partitioned by society_id
     match /{collection}/{docId} {
       
       allow read: if isAuthenticated() 
@@ -23,16 +25,18 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() 
         && isSameSociety(resource.data);
       
-      // Sub-collections: Messages, Presence, etc.
+      // Sub-collections inherit the same tenant protection
       match /{subCollection}/{subDocId} {
-        allow read, write: if isAuthenticated(); // Scoped by parent doc access in real apps usually
+        allow read, write: if isAuthenticated() 
+          && isSameSociety(get(/databases/$(database)/documents/$(collection)/$(docId)).data);
       }
     }
 
-    // Special case for society_settings (Doc ID is societyId)
-    match /society_settings/{societyId} {
-      allow read: if isAuthenticated() && request.auth.token.societyId == societyId;
-      allow write: if isAuthenticated() && request.auth.token.societyId == societyId && request.auth.token.role in ['admin', 'main_admin'];
+    // Special case for society_settings (Doc ID is society_id)
+    match /society_settings/{society_id} {
+      allow read: if isAuthenticated() && request.auth.token.society_id == society_id;
+      allow write: if isAuthenticated() && request.auth.token.society_id == society_id && request.auth.token.role in ['admin', 'main_admin'];
     }
   }
 }
+

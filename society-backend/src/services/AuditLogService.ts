@@ -1,5 +1,7 @@
-import { getDb, getAdmin } from "../../config/firebase";
-import { logger } from "../shared/Logger";
+// @ts-ignore
+import { getDb, getAdmin } from "../../config/firebase.js";
+import { logger } from "../shared/Logger.js";
+import { firebaseBreaker } from "../shared/CircuitBreaker.js";
 
 export type LogType = 'administrative' | 'security' | 'system';
 
@@ -31,15 +33,17 @@ export class AuditLogService {
      */
     public async log(item: AuditLogItem): Promise<string> {
         try {
-            const db = getDb();
-            const admin = getAdmin();
+            return await firebaseBreaker.execute(async () => {
+                const db = getDb();
+                const admin = getAdmin();
 
-            const logRef = await db.collection("audit_logs").add({
-                ...item,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
+                const logRef = await db.collection("audit_logs").add({
+                    ...item,
+                    createdAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+
+                return logRef.id;
             });
-
-            return logRef.id;
         } catch (err: any) {
             logger.error(`Failed to create audit log: ${err.message}`);
             return "";
@@ -62,7 +66,7 @@ export class AuditLogService {
 
             const snap = await query.limit(limit).get();
             
-            return snap.docs.map(doc => {
+            return snap.docs.map((doc: any) => {
                 const data = doc.data();
                 return {
                     id: doc.id,

@@ -1,39 +1,38 @@
 const admin = require("firebase-admin");
-const path = require("path");
-const fs = require("fs");
 
 let db;
 
 function initFirebase() {
-  if (admin.apps.length > 0) return; // already initialized
+  if (admin.apps.length > 0) return;
 
-  const serviceAccountPath = path.resolve(
-    process.env.FIREBASE_SERVICE_ACCOUNT_PATH || "./config/serviceAccountKey.json"
-  );
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+  const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
+  const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
-  // Check if file exists to prevent hard crash
-  if (!fs.existsSync(serviceAccountPath)) {
-    console.error("\n❌ ERROR: Firebase service account key missing!");
-    console.error(`📍 Expected at: ${serviceAccountPath}`);
-    console.error("\nTo fix this:");
-    console.error("1. Go to Firebase Console -> Project Settings -> Service Accounts");
-    console.error("2. Click 'Generate new private key' and download the JSON.");
-    console.error(`3. Rename it to 'serviceAccountKey.json' and place it in the 'config' folder.`);
-    console.error("\nThe backend will not work until this file is provided.\n");
-    return;
+  if (!projectId || !clientEmail || !privateKey) {
+    console.error("\n❌ CRITICAL ERROR: Missing Firebase Environment Variables!");
+    console.error("Required: FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY\n");
+    throw new Error("Targeted Failure: Firebase Configuration Incomplete");
   }
 
   try {
     admin.initializeApp({
-      credential: admin.credential.cert(require(serviceAccountPath)),
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${process.env.FIREBASE_PROJECT_ID}.appspot.com`,
+      credential: admin.credential.cert({
+        projectId,
+        clientEmail,
+        // Support both literal newlines and escaped versions for flexible deployment
+        privateKey: privateKey.includes("\\n") 
+          ? privateKey.replace(/\\n/g, "\n") 
+          : privateKey,
+      }),
+      storageBucket: process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.appspot.com`,
     });
 
     db = admin.firestore();
-    console.log("✅ Firebase connected");
+    console.log("✅ Firebase connected (Initialized via Environment)");
   } catch (err) {
     console.error("❌ Firebase initialization failed:", err.message);
+    throw err; // Fail-fast: prevents the server from running in a crippled state
   }
 }
 
@@ -51,3 +50,4 @@ function getAdmin() {
 }
 
 module.exports = { initFirebase, getDb, getStorage, getAdmin };
+

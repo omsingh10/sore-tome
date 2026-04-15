@@ -30,35 +30,50 @@ function authMiddleware(req, res, next) {
   }
 }
 
+const { logger } = require("../src/shared/Logger");
+
+// ... (authMiddleware remains same but ensures strict role extraction)
+
 // Only allow admins and superadmins (legacy helper)
 function adminOnly(req, res, next) {
-  if (req.user?.role !== "admin" && req.user?.role !== "superadmin" && req.user?.role !== "main_admin") {
+  const role = req.user?.role;
+  const isAuthorized = role === "admin" || role === "superadmin" || role === "main_admin";
+  
+  if (!isAuthorized) {
+    logger.warn({ userId: req.user?.uid, role, path: req.path }, "SEC-WARN: Unauthorized Admin Access Attempt");
     return res.status(403).json({ error: "Admin access required" });
   }
   next();
 }
 
 function mainAdminOnly(req, res, next) {
-  if (req.user?.role !== "main_admin") {
+  const role = req.user?.role;
+  if (role !== "main_admin") {
+    logger.warn({ userId: req.user?.uid, role, path: req.path }, "SEC-WARN: Unauthorized Main Admin Access Attempt");
     return res.status(403).json({ error: "Main admin access required" });
   }
   next();
 }
 
 function canManageFunds(req, res, next) {
+  const role = req.user?.role;
   const allowed = ["main_admin", "treasurer"];
-  if (!allowed.includes(req.user?.role)) {
+  if (!allowed.includes(role)) {
+    logger.warn({ userId: req.user?.uid, role, path: req.path }, "SEC-WARN: Unauthorized Funds Management Attempt");
     return res.status(403).json({ error: "Treasurer or admin access required" });
   }
   next();
 }
 
 function canManageContent(req, res, next) {
+  const role = req.user?.role;
   const allowed = ["main_admin", "secretary"];
-  if (!allowed.includes(req.user?.role)) {
+  if (!allowed.includes(role)) {
+    logger.warn({ userId: req.user?.uid, role, path: req.path }, "SEC-WARN: Unauthorized Content Management Attempt");
     return res.status(403).json({ error: "Secretary or admin access required" });
   }
   next();
 }
 
 module.exports = { authMiddleware, adminOnly, mainAdminOnly, canManageFunds, canManageContent };
+

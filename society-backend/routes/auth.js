@@ -18,7 +18,6 @@ const { RegisterSchema, LoginSchema, RefreshTokenSchema } = require("../src/shar
 
 // ─── REFRESH TOKEN ────────────────────────────────────────────────────────────
 // POST /auth/refresh
-// Body: { refreshToken }
 router.post("/refresh", validate(RefreshTokenSchema), async (req, res) => {
     const { refreshToken } = req.body;
     const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
@@ -26,49 +25,40 @@ router.post("/refresh", validate(RefreshTokenSchema), async (req, res) => {
     try {
         const db = getDb();
         const tokenHash = hashToken(refreshToken);
-        const tokenDoc = await db.collection("refresh_tokens").doc(tokenHash).get();
+        
+        // ❗ SEC FIX: Check Redis Blacklist first for instant revocation
+        const isBlacklisted = await redis.get(`blacklist:${tokenHash}`);
+        if (isBlacklisted) {
+            return res.status(401).json({ error: "Session revoked" });
+        }
 
+        const tokenDoc = await db.collection("refresh_tokens").doc(tokenHash).get();
         if (!tokenDoc.exists) {
-            logger.warn({ ip }, "SEC-FAIL: Refresh token not found in DB");
             return res.status(401).json({ error: "Invalid refresh token" });
         }
 
         const tokenData = tokenDoc.data();
 
-        // 🚨 REUSE DETECTION
+        // 🚨 REUSE DETECTION & AUTOMATIC LOGOUT
         if (tokenData.revoked) {
             logger.alert({ ip, userId: tokenData.userId }, "SEC-CRITICAL: Refresh token reuse detected! Revoking all sessions.");
-            
-            // Revoke ALL sessions for this user
-            const allTokens = await db.collection("refresh_tokens")
-                .where("userId", "==", tokenData.userId)
-                .get();
-            
+            const allTokens = await db.collection("refresh_tokens").where("userId", "==", tokenData.userId).get();
             const batch = db.batch();
             allTokens.forEach(doc => batch.delete(doc.ref));
             await batch.commit();
-
             return res.status(401).json({ error: "Session compromised. Please log in again." });
         }
 
-        // Check expiration
-        const expiresAt = tokenData.expiresAt.toDate ? tokenData.expiresAt.toDate() : new Date(tokenData.expiresAt);
-        if (new Date() > expiresAt) {
-            logger.warn({ ip, userId: tokenData.userId }, "SEC-FAIL: Refresh token expired");
-            await tokenDoc.ref.delete();
-            return res.status(401).json({ error: "Refresh token expired" });
-        }
-
-        // Fetch user context
+        // ❗ SEC FIX: Fetch FRESH user data from DB (Don't trust JWT/Stored role)
         const userDoc = await db.collection("users").doc(tokenData.userId).get();
-        if (!userDoc.exists) {
-            return res.status(401).json({ error: "User no longer exists" });
+        if (!userDoc.exists || userDoc.data().status !== "approved") {
+            return res.status(401).json({ error: "User unauthorized or no longer exists" });
         }
         const user = userDoc.data();
 
         // 🔁 TOKEN ROTATION
         const batch = db.batch();
-        batch.update(tokenDoc.ref, { revoked: true }); // Revoke old token
+        batch.update(tokenDoc.ref, { revoked: true }); // Invalidate old token in Firestore
 
         const newRefreshToken = crypto.randomBytes(40).toString("hex");
         const newRefreshTokenHash = hashToken(newRefreshToken);
@@ -78,9 +68,13 @@ router.post("/refresh", validate(RefreshTokenSchema), async (req, res) => {
             expiresAt: getAdmin().firestore.Timestamp.fromDate(new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN)),
             revoked: false,
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+            society_id: user.society_id
         });
 
         await batch.commit();
+        
+        // Add old token to Redis Blacklist (Short TTL)
+        await redis.setex(`blacklist:${tokenHash}`, 3600, "1");
 
         const newAccessToken = jwt.sign(
             { 
@@ -103,14 +97,17 @@ router.post("/refresh", validate(RefreshTokenSchema), async (req, res) => {
     }
 });
 
-// ─── LOGOUT ───────────────────────────────────────────────────────────────────
 // POST /auth/logout
 router.post("/logout", validate(RefreshTokenSchema), async (req, res) => {
     try {
         const { refreshToken } = req.body;
         const db = getDb();
         const tokenHash = hashToken(refreshToken);
+        
+        // ❗ SEC FIX: Immediate Blacklist with TTL (7 Days)
+        await redis.setex(`blacklist:${tokenHash}`, 7 * 24 * 3600, "revoke");
         await db.collection("refresh_tokens").doc(tokenHash).delete();
+        
         res.json({ message: "Logged out successfully" });
     } catch (err) {
         res.status(500).json({ error: "Logout failed" });
@@ -308,14 +305,17 @@ router.post("/login", validate(LoginSchema), async (req, res) => {
     }
 });
 
-// ─── ADMIN: GET PENDING REQUESTS ──────────────────────────────────────────────
 // GET /auth/pending
 router.get("/pending", authMiddleware, mainAdminOnly, async (req, res) => {
     try {
         const db = getDb();
+        const societyId = req.user.society_id;
+        
+        // ❗ SEC FIX: Strict multi-tenant isolation
         const snap = await db
             .collection("users")
             .where("status", "==", "pending")
+            .where("society_id", "==", societyId)
             .orderBy("createdAt", "asc")
             .get();
 
@@ -335,11 +335,21 @@ router.get("/pending", authMiddleware, mainAdminOnly, async (req, res) => {
 router.post("/approve/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
     try {
         const db = getDb();
+        const societyId = req.user.society_id;
         const userRef = db.collection("users").doc(req.params.uid);
         const userDoc = await userRef.get();
 
         if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
-        if (userDoc.data().status === "approved") {
+        
+        const userData = userDoc.data();
+        
+        // ❗ SEC FIX: Multi-tenant Assertion
+        if (userData.society_id !== societyId && societyId !== "main_society") {
+            logger.fatal({ admin: req.user.uid, target: req.params.uid }, "SEC-CRITICAL: Cross-tenant approval attempt!");
+            return res.status(403).json({ error: "Access Denied: User belongs to a different society." });
+        }
+
+        if (userData.status === "approved") {
             return res.status(400).json({ error: "User is already approved" });
         }
 
@@ -375,22 +385,23 @@ router.post("/approve/:uid", authMiddleware, mainAdminOnly, async (req, res) => 
 
 // ─── ADMIN: REJECT USER ───────────────────────────────────────────────────────
 // POST /auth/reject/:uid
-// Body: { reason? }
 router.post("/reject/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
     try {
         const { reason } = req.body;
         const db = getDb();
+        const societyId = req.user.society_id;
         const userRef = db.collection("users").doc(req.params.uid);
         const userDoc = await userRef.get();
 
         if (!userDoc.exists) return res.status(404).json({ error: "User not found" });
+        
+        const userData = userDoc.data();
 
-        await userRef.update({
-            status: "rejected",
-            rejectedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
-            rejectedBy: req.user.uid,
-            rejectionReason: reason || "",
-        });
+        // ❗ SEC FIX: Multi-tenant Assertion
+        if (userData.society_id !== societyId && societyId !== "main_society") {
+            logger.fatal({ admin: req.user.uid, target: req.params.uid }, "SEC-CRITICAL: Cross-tenant rejection attempt!");
+            return res.status(403).json({ error: "Access Denied: User belongs to a different society." });
+        }
 
         const userData = userDoc.data();
 
@@ -418,17 +429,19 @@ router.post("/reject/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
     }
 });
 
-// ─── GET MY NOTIFICATIONS ─────────────────────────────────────────────────────
 // GET /auth/notifications
 router.get("/notifications", authMiddleware, async (req, res) => {
     try {
         const db = getDb();
+        const societyId = req.user.society_id;
         let snap;
 
         if (["admin", "superadmin", "main_admin", "treasurer", "secretary"].includes(req.user.role)) {
+            // ❗ SEC FIX: Multi-tenant assertion
             snap = await db
                 .collection("notifications")
                 .where("targetRole", "==", "admin")
+                .where("society_id", "==", societyId)
                 .orderBy("createdAt", "desc")
                 .limit(30)
                 .get();
@@ -436,6 +449,7 @@ router.get("/notifications", authMiddleware, async (req, res) => {
             snap = await db
                 .collection("notifications")
                 .where("targetUserId", "==", req.user.uid)
+                .where("society_id", "==", societyId)
                 .orderBy("createdAt", "desc")
                 .limit(30)
                 .get();

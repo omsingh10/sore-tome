@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
 
 // Use localhost for Web/Desktop, local IP for physical Android/iOS device
@@ -10,8 +9,9 @@ final String kBaseUrl = (kIsWeb || defaultTargetPlatform == TargetPlatform.windo
     : 'http://192.168.182.192:3000';
 
 class AuthService {
+  static const _storage = FlutterSecureStorage();
+
   // ─── Register (resident) ──────────────────────────────────────────────────
-  // Returns a success message string, or throws an error string.
   static Future<String> register({
     required String name,
     required String phone,
@@ -39,9 +39,6 @@ class AuthService {
   }
 
   // ─── Login ────────────────────────────────────────────────────────────────
-  // For residents : phone = phone number, password = their password
-  // For admin     : phone = "admin",      password = "123123"
-  // Saves token + user to SharedPreferences on success.
   static Future<Map<String, dynamic>> login({
     required String phone,
     required String password,
@@ -54,12 +51,11 @@ class AuthService {
     final data = jsonDecode(response.body);
 
     if (response.statusCode == 200) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('token', data['token']);
-      await prefs.setString('user', jsonEncode(data['user']));
+      await _storage.write(key: 'token', value: data['token']);
+      await _storage.write(key: 'refreshToken', value: data['refreshToken']);
+      await _storage.write(key: 'user', value: jsonEncode(data['user']));
       return data;
     } else if (response.statusCode == 403) {
-      // pending or rejected — throw map so UI can show specific message
       throw {'error': data['error'], 'status': data['status']};
     } else {
       throw data['error'] ?? 'Login failed';
@@ -68,21 +64,23 @@ class AuthService {
 
   // ─── Logout ───────────────────────────────────────────────────────────────
   static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('token');
-    await prefs.remove('user');
+    await _storage.delete(key: 'token');
+    await _storage.delete(key: 'refreshToken');
+    await _storage.delete(key: 'user');
   }
 
-  // ─── Token helper ─────────────────────────────────────────────────────────
-  static Future<String?> getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+  // ─── Token helpers ────────────────────────────────────────────────────────
+  static Future<String?> getToken() async => await _storage.read(key: 'token');
+  static Future<String?> getRefreshToken() async => await _storage.read(key: 'refreshToken');
+
+  static Future<void> saveTokens({required String token, required String refreshToken}) async {
+    await _storage.write(key: 'token', value: token);
+    await _storage.write(key: 'refreshToken', value: refreshToken);
   }
 
   // ─── Saved user helper ────────────────────────────────────────────────────
   static Future<Map<String, dynamic>?> getSavedUser() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userStr = prefs.getString('user');
+    final userStr = await _storage.read(key: 'user');
     if (userStr == null) return null;
     return jsonDecode(userStr) as Map<String, dynamic>;
   }
@@ -108,7 +106,7 @@ class AuthService {
     };
   }
 
-  // ─── Get my notifications ─────────────────────────────────────────────────
+  // ─── Get my notifications (Deprecated: use ApiClient for production) ──────
   static Future<List<dynamic>> getNotifications() async {
     final response = await http.get(
       Uri.parse('$kBaseUrl/auth/notifications'),
@@ -119,5 +117,6 @@ class AuthService {
     throw data['error'] ?? 'Failed to load notifications';
   }
 }
+
 
 

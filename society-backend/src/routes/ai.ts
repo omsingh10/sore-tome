@@ -10,6 +10,15 @@ import { z } from "zod";
 // @ts-ignore
 import { authMiddleware } from "../../middleware/auth";
 import { VectorStoreService } from "../services/ai/VectorStoreService";
+import rateLimit from "express-rate-limit";
+
+// Rate limiting for costly AI Ingestion
+const uploadRateLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // 10 documents per hour max
+  message: { error: "Upload quota exceeded per hour." },
+  keyGenerator: (req: any) => req.user?.society_id || req.ip,
+});
 
 const router = Router();
 
@@ -171,9 +180,9 @@ router.post("/extract-form", authMiddleware, async (req: Request, res: Response)
 /**
  * POST /ai/upload-document
  * Admin-only: Uploads a document (PDF/Image) for society knowledge ingestion.
- * Expects { fileUrl, fileName, fileType }
+ * ❗ Phase 3: Enforces File Size, SSRF, and Content Validation
  */
-router.post("/upload-document", authMiddleware, async (req: Request, res: Response) => {
+router.post("/upload-document", authMiddleware, uploadRateLimiter, async (req: Request, res: Response) => {
   try {
     const { fileUrl, fileName, fileType, documentType = "general" } = req.body;
     const userId = (req as any).user?.uid;
@@ -183,10 +192,19 @@ router.post("/upload-document", authMiddleware, async (req: Request, res: Respon
       return res.status(400).json({ error: "fileUrl and fileName are required" });
     }
 
-    // 1. Log ingestion attempt in Firestore/Audit
-    logger.info({ societyId, userId, fileName }, "AI Ingestion: Starting document upload");
+    // SSRF & Security Validation
+    if (!fileUrl.startsWith("https://") || fileUrl.includes("localhost") || fileUrl.includes("127.0.0.1")) {
+       return res.status(403).json({ error: "Invalid file URL. Intranet/SSRF attempts are blocked." });
+    }
+    
+    const allowedTypes = [".pdf", ".txt", ".png", ".jpg", ".jpeg"];
+    const ext = fileName.slice((Math.max(0, fileName.lastIndexOf(".")) || Infinity)).toLowerCase();
+    if (!allowedTypes.includes(ext)) {
+       return res.status(415).json({ error: "Unsupported file type for ingestion" });
+    }
 
-    // 2. Trigger Queue for Indexing
+    logger.info({ societyId, userId, fileName }, "AI Ingestion: Starting secure document upload");
+
     const queueService = AIQueueService.getInstance();
     await queueService.addJob("DOC_INGESTION", { 
       filePath: fileUrl, 
@@ -195,17 +213,42 @@ router.post("/upload-document", authMiddleware, async (req: Request, res: Respon
       documentType,
       society_id: societyId,
       userId: userId,
-      retentionDays: 30 // V3.9 Policy: 7-30 days
+      retentionDays: 30
     });
 
     return res.status(202).json({ 
-      message: "Ingestion started", 
+      message: "Ingestion verified and started", 
       status: "Processing",
       fileName 
     });
   } catch (error: any) {
     logger.error({ error: error.message }, "/ai/upload-document failed");
     return res.status(500).json({ error: "Upload failed", message: error.message });
+  }
+});
+
+/**
+ * DELETE /ai/document
+ * Phase 3 Vector Store Cleanup
+ */
+router.delete("/document", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { documentId } = req.body;
+    const societyId = (req as any).user?.society_id || "main_society";
+    const role = (req as any).user?.role;
+    
+    if (!["admin", "main_admin"].includes(role)) {
+      return res.status(403).json({ error: "Forbidden: Admins only" });
+    }
+    if (!documentId) return res.status(400).json({ error: "documentId is required" });
+
+    const vectorStore = VectorStoreService.getInstance();
+    const count = await vectorStore.deleteDocument(documentId, societyId);
+    
+    return res.status(200).json({ message: "Document chunks deleted", count });
+  } catch (error: any) {
+    logger.error({ error: error.message }, "/ai/document DELETE failed");
+    return res.status(500).json({ error: "Delete failed", message: error.message });
   }
 });
 
@@ -273,6 +316,47 @@ router.post("/ingest", authMiddleware, async (req: Request, res: Response) => {
   } catch (error: any) {
     logger.error({ error: error.message }, "/ai/ingest failed");
     return res.status(500).json({ error: "Ingestion failed", message: error.message });
+  }
+});
+
+/**
+ * GET /ai/logs
+ * Phase 3 Audit UI Integration with Anomaly Detection flags.
+ */
+router.get("/logs", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const role = (req as any).user?.role;
+    const societyId = (req as any).user?.society_id || "main_society";
+
+    if (!["admin", "main_admin"].includes(role)) {
+      return res.status(403).json({ error: "Forbidden: Admins only" });
+    }
+
+    const { limit = 50, offset = 0 } = req.query;
+    const vectorStore = VectorStoreService.getInstance();
+    const pool = (vectorStore as any).pool;
+
+    const query = `
+      SELECT action_id, tool_id, user_id, action, params, status, created_at, error_message, latency_ms
+      FROM ai_audit_logs 
+      WHERE society_id = $1
+      ORDER BY created_at DESC
+      LIMIT $2 OFFSET $3
+    `;
+    const result = await pool.query(query, [societyId, limit, offset]);
+
+    // Anomaly Detection: Flag if >30% of last N logs failed (potential abuse)
+    const recentFailures = result.rows.filter((r: any) => r.status === "failed").length;
+    const isUnderAttack = result.rows.length >= 10 && (recentFailures / result.rows.length) > 0.3;
+
+    return res.status(200).json({ 
+      logs: result.rows,
+      hasAnomaly: isUnderAttack,
+      anomalyMessage: isUnderAttack ? "Warning: High failure rate detected in recent AI queries." : null
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, "/ai/logs get failed");
+    return res.status(500).json({ error: "Failed to fetch logs" });
   }
 });
 
@@ -438,6 +522,23 @@ router.get("/finance-analysis", authMiddleware, async (req: Request, res: Respon
   } catch (error: any) {
     logger.error({ error: error.message }, "/ai/finance-analysis failed");
     return res.status(500).json({ error: "Failed to perform financial analysis" });
+  }
+});
+
+/**
+ * POST /ai/refresh-stats
+ * ❗ PRO FIX: Manual consistency override for aggregate stats.
+ */
+router.post("/refresh-stats", authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const societyId = (req as any).user?.society_id || "main_society";
+    const toolService = AIToolService.getInstance();
+    
+    await toolService.syncSocietyStats(societyId);
+    return res.status(200).json({ message: "Statistics refreshed successfully" });
+  } catch (error: any) {
+    logger.error({ error: error.message }, "/ai/refresh-stats failed");
+    return res.status(500).json({ error: "Failed to refresh stats" });
   }
 });
 

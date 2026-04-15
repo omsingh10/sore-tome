@@ -138,7 +138,7 @@ export class AIChatService {
         }
       }
 
-      const safeOutput = await this.postProcess(userId, societyId, safeInput, aiText, context);
+      const safeOutput = await this.postProcess(userId, societyId, safeInput, aiText, { ...context, ragContext });
       
       logger.info({ ...context, responseType }, "AI Chat Response Generated");
 
@@ -205,7 +205,7 @@ export class AIChatService {
         res.write(`data: ${JSON.stringify({ content })}\n\n`);
       }
 
-      await this.postProcess(userId, societyId, safeInput, fullResponse, context);
+      await this.postProcess(userId, societyId, safeInput, fullResponse, { ...context, ragContext });
 
       res.write("data: [DONE]\n\n");
       res.end();
@@ -271,7 +271,7 @@ export class AIChatService {
    * Shared helper for post-processing.
    */
   private async postProcess(userId: string, societyId: string, input: string, output: string, context: any) {
-    // 1. Output Guardrails
+    // 1. Output Guardrails (Phase 3: includes ragContext for grounding)
     const safeOutput = await this.guardrails.validateOutput(output, context);
 
     // 2. Save to Memory

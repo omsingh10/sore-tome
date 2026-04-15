@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
-import { AuditLogService } from "../services/AuditLogService";
-import { authMiddleware, adminOnly } from "../../middleware/auth";
+import { AuditLogService } from "../services/AuditLogService.js";
+// @ts-ignore
+import { authMiddleware, adminOnly } from "../../middleware/auth.js";
 
 const router = Router();
 const auditService = AuditLogService.getInstance();

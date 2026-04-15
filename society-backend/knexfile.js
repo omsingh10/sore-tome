@@ -9,7 +9,8 @@ module.exports = {
     connection: process.env.DATABASE_URL,
     pool: {
       min: 2,
-      max: 20
+      max: 10,
+      acquireTimeoutMillis: 30000
     },
     migrations: {
       tableName: "knex_migrations"
@@ -23,10 +24,12 @@ module.exports = {
     },
     pool: {
       min: 2,
-      max: 20
+      max: 10,
+      acquireTimeoutMillis: 30000
     },
     migrations: {
       tableName: "knex_migrations"
     }
   }
+
 };
