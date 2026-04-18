@@ -46,7 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passCtrl.text.trim(),
         flatNumber: _flatCtrl.text.trim(),
         blockName: _blockCtrl.text.trim().isEmpty ? null : _blockCtrl.text.trim(),
-        society_id: _societyCtrl.text.trim(),
+        societyId: _societyCtrl.text.trim(),
       );
       if (!mounted) return;
       setState(() { _loading = false; _done = true; });

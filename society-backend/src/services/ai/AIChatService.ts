@@ -185,7 +185,7 @@ export class AIChatService {
       const safeInput = await this.guardrails.validateInput(userMessage, context);
 
       let fileContent = ""; // No image support in streaming yet
-      const { messages, sources } = await this.prepareContext(userId, societyId, safeInput, context, fileContent);
+      const { messages, sources, ragContext } = await this.prepareContext(userId, societyId, safeInput, context, fileContent);
 
       res.setHeader("Content-Type", "text/event-stream");
       res.setHeader("Cache-Control", "no-cache");

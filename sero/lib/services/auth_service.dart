@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:flutter/foundation.dart';
 import '../config/env.dart';
 
 // Use centralized environment config
@@ -16,7 +15,7 @@ class AuthService {
     required String phone,
     required String password,
     required String flatNumber,
-    required String society_id,
+    required String societyId,
     String? blockName,
   }) async {
     final response = await http.post(
@@ -27,7 +26,7 @@ class AuthService {
         'phone': phone,
         'password': password,
         'flatNumber': flatNumber,
-        'society_id': society_id,
+        'society_id': societyId,
         'blockName': blockName ?? '',
       }),
     );

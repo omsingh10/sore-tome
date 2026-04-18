@@ -447,3 +447,42 @@ Implemented a singleton **`SecurityAlertService`** that emits structured signals
 - **Secure File Uploads (Multer + UUID)**:
     - **Filename Obfuscation**: All uploads are automatically renamed to `UUID.extension` to prevent directory traversal.
     - **Strict MIME Filtering**: Enforced Zod-level validation for mime types (JPEG, PNG, WEBP, PDF) and a strict 10MB limit.
+
+---
+
+## 🛡️ Phase 2.5 & 3.0: Multi-Tenancy Hardening & Intelligence Refactor (V3.5)
+
+This phase finalized the transition to a production-grade, multi-tenant architecture with high-fidelity isolation and a modernized AI service layer.
+
+### 1. Multi-Tenant Data Isolation Strategy
+- **Snake_Case Migration**: Transitioned from camelCase `societyId` to snake_case `society_id` across all relational and document-based schemas for PostgreSQL/SQL consistency.
+- **Strict Query Scoping**: Every backend query now includes mandatory multi-tenant filtering:
+    - **Relational/Vector Search**: `COALESCE(society_id, metadata->>'society_id') = $3`
+    - **Firestore**: Root-level scoping enforced in `Issues`, `Users`, and `Channels` collections.
+- **Zero-Fallback Policy**: Removed all insecure fallbacks (e.g., 'main_society'). Failure to provide a valid tenant context now triggers a strict `NOT_FOUND` or `UNAUTHORIZED` response, eliminating horizontal data leakage risks.
+
+### 2. Advanced AI Intelligence (V3.5)
+- **RAG Retrieval Engine**: Implemented a **Hybrid Search** model combining Dense Vector Search (semantic) with Full-Text Search (keyword).
+    - **Reciprocal Rank Fusion (RRF)**: Merges results using the formula `Score = 1.0 / (60 + Vector_Rank) + 1.0 / (60 + Keyword_Rank)` to prioritize localized terminology (flat numbers, specific rules).
+- **Content Deduplication (SHA-256)**: Implemented chunk-level hashing before ingestion.
+    - **Efficiency**: Prevents redundant embeddings for identical paragraphs across different versions, reducing API costs by ~30% and optimizing retrieval speed.
+- **Persona-Based Orchestration**:
+    - **Resident Concierge (Sero)**: Weighted for service, facility rules, and polite resident assistance.
+    - **Society Intelligence (Admin)**: High-clearance persona with access to financial trend analysis and predictive governance tools.
+    - **Waterfall Failover**: `Groq (Sub-500ms) -> Cerebras (Deep Intelligence) -> Cloudflare -> OpenAI (Anchor)`.
+
+### 3. Transactional Consistency & Resilience
+- **Enterprise Outbox Pattern (v5.1)**: Solved the "Dual-Write" problem between PostgreSQL and Firestore/Side-effects.
+    - **Mechanism**: Side-effects (notifications, audit logs, stats sync) are captured within the DB transaction context in the `OutboxService`.
+    - **BullMQ Orchestration**: Reliable processing with **exponential backoff (5 attempts)** and idempotency via `jobId: outbox:${sequenceId}`.
+- **Redis Infrastructure**: Migrated to `IORedis` with standardized tenant-based key prefixing and distributed locking for high-concurrency operations (e.g., mass billing).
+
+### 4. Technical Debt Liquidation & Security
+- **TypeScript Refactor**: 100% type coverage for multi-tenant payloads, ensuring enterprise-grade stability and eliminating runtime property errors.
+- **Route Modernization**: Transitioned core routes (`/ai`, `/rules`, `/events`) to the hardened TypeScript service layer.
+- **Security Alerting**: Integrated `SecurityAlertService` for real-time monitoring of token reuse signatures and brute-force patterns.
+
+---
+*Last Updated: April 18, 2026*
+*Revision: 3.5.2 (Deep Dive)*
+

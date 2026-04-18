@@ -1,13 +1,27 @@
+import { Request, Response, NextFunction } from "express";
+
+export interface TenantRequest extends Request {
+  user?: {
+    uid: string;
+    role: string;
+    society_id: string;
+    [key: string]: any;
+  };
+  societyId?: string;
+}
+
 /**
  * Middleware to enforce multi-tenancy by extracting societyId from the authenticated user.
  * Assumes the request has already passed through authMiddleware.
  */
-function tenantMiddleware(req, res, next) {
-  if (!req.user) {
+export const tenantMiddleware = (req: Request, res: Response, next: NextFunction) => {
+  const tReq = req as TenantRequest;
+
+  if (!tReq.user) {
     return res.status(401).json({ error: "Authentication required for tenant enforcement" });
   }
 
-  const societyId = req.user.society_id;
+  const societyId = tReq.user.society_id;
 
   if (!societyId) {
     // SECURITY: Reject requests without a valid tenant context
@@ -15,9 +29,7 @@ function tenantMiddleware(req, res, next) {
   }
 
   // Inject societyId into the request object for easy access in routes/services
-  req.societyId = societyId;
+  tReq.societyId = societyId;
   
   next();
-}
-
-module.exports = { tenantMiddleware };
+};

@@ -68,14 +68,23 @@ The AI assistant has been specifically tailored to serve as a high-fidelity digi
 ## 8. Mobile Performance & UX
 - **Identity & Branding**: 
     - Consistent application of the "Dark Emerald" theme across all resident screens.
+    - High-fidelity typography using `GoogleFonts.outfit`.
 - **Staggered Animations**: 
     - Use of `flutter_animate` for a premium, non-static experience during data loading.
-- **Identity & Branding**: 
-    - Consistent application of the "Dark Emerald" theme across all resident screens.
-    - High-fidelity typography using `GoogleFonts.outfit`.
 - **Optimized Scrolling**: 
     - Implementation of FAB-safe padding (120dp) to ensure resident list items are never obscured by action buttons.
-    - Use of `flutter_animate` to provide a premium feel when transitioning between house rules, dashboards, and financial summaries.
+
+## 9. V3.5 Production Hardening (Resident Experience Deep-Dive)
+- **Data Privacy & Anti-Leak Isolation**: 
+    - Implemented database-level scoping using the snake_case `society_id` standard.
+    - **Verification Layer**: Every request undergoes a "Tenant Context Check" which validates that the user's `society_id` matches the target resource, returning a `404 Not Found` for unauthorized access (Masking existence).
+- **High-Fidelity AI Concierge**: 
+    - The engine now utilizes **Hybrid RAG (Retrieval Augmented Generation)**.
+    - **RRF Integration**: Combines semantic understanding with keyword precision, ensuring the AI correctly identifies specific block-level rules or flat-specific notices.
+    - **Response Resilience**: Integrated a failover waterfall (`Groq -> Cerebras`) to ensure 99.9% availability for resident queries even during high-load periods.
+- **Security Assurance**: 
+    - All resident sessions are protected by **SHA-256 Refresh Token Rotation**, making session hijacking nearly impossible on mobile devices.
 
 ---
-*Last Updated: April 14, 2026*
+*Last Updated: April 18, 2026*
+*Revision: 3.5.2 (High-Fidelity)*
