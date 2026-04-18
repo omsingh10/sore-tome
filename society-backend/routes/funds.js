@@ -1,3 +1,6 @@
+const express = require("express");
+const router = express.Router();
+const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageFunds } = require("../middleware/auth");
 const { tenantMiddleware } = require("../middleware/tenantMiddleware");
 const { AuditLogService } = require("../src/services/AuditLogService");
@@ -15,7 +18,7 @@ router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
       .orderBy("createdAt", "desc")
       .limit(12)
       .get();
-    
+
     const funds = snap.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -42,7 +45,7 @@ router.get("/transactions", authMiddleware, tenantMiddleware, async (req, res) =
       .orderBy("createdAt", "desc")
       .limit(30)
       .get();
-    
+
     const transactions = snap.docs.map((doc) => {
       const data = doc.data();
       return {
@@ -86,8 +89,9 @@ router.post("/transactions", authMiddleware, tenantMiddleware, canManageFunds, v
 router.get("/summary", authMiddleware, tenantMiddleware, async (req, res) => {
   try {
     const db = getDb();
+    const { redis } = require("../src/shared/Redis");
     const [transSnap, settingsSnap] = await Promise.all([
-      db.collection("transactions").where("societyId", "==", req.societyId).get(),
+      db.collection("transactions").where("societyId", "==", req.societyId).orderBy("createdAt", "desc").limit(100).get(),
       db.collection("society_settings").doc(req.societyId).get()
     ]);
 
@@ -111,21 +115,21 @@ router.get("/summary", authMiddleware, tenantMiddleware, async (req, res) => {
 
     // AI V3.12: Live Census-based Outstanding Dues Calculation (Filtered by societyId)
     const usersSnap = await db.collection("users")
-        .where("societyId", "==", req.societyId)
-        .where("status", "==", "approved")
-        .get();
-    
+      .where("societyId", "==", req.societyId)
+      .where("status", "==", "approved")
+      .get();
+
     const liableUsers = usersSnap.docs.filter(u => u.data().maintenanceExempt !== true);
-    
+
     const now = new Date();
     const firstDayTs = getAdmin().firestore.Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), 1));
     const paidMatch = await db.collection("transactions")
-        .where("societyId", "==", req.societyId)
-        .where("createdAt", ">=", firstDayTs)
-        .where("category", "==", "maintenance")
-        .where("type", "==", "credit")
-        .get();
-    
+      .where("societyId", "==", req.societyId)
+      .where("createdAt", ">=", firstDayTs)
+      .where("category", "==", "maintenance")
+      .where("type", "==", "credit")
+      .get();
+
     const paidUids = new Set(paidMatch.docs.map(doc => doc.data().addedBy));
     const unpaidCount = liableUsers.filter(u => !paidUids.has(u.data().uid)).length;
 
@@ -152,7 +156,7 @@ router.post("/settings", authMiddleware, tenantMiddleware, canManageFunds, async
     const { target, currency, maintenanceFee } = req.body;
     const db = getDb();
     const settingsRef = db.collection("society_settings").doc(req.societyId);
-    
+
     const updates = {};
     if (target !== undefined) updates.target = Number(target);
     if (currency) updates.currency = currency;
@@ -162,21 +166,20 @@ router.post("/settings", authMiddleware, tenantMiddleware, canManageFunds, async
 
     // Invalidate dashboard cache
     try {
-      const IORedis = require("ioredis");
-      const redis = new IORedis(process.env.REDIS_URL || "redis://localhost:6379");
+      const { redis } = require("../src/shared/Redis");
       await redis.del(`admin:dashboard:${req.societyId}`);
     } catch (e) {
       console.warn("Redis invalidation skipped:", e.message);
     }
 
     await AuditLogService.getInstance().log({
-       type: 'administrative',
-       action: "Settings Updated",
-       actorId: req.user.uid,
-       actorName: req.user.name || "Admin",
-       details: `Updated society financial settings`,
-       societyId: req.societyId,
-       metadata: updates
+      type: 'administrative',
+      action: "Settings Updated",
+      actorId: req.user.uid,
+      actorName: req.user.name || "Admin",
+      details: `Updated society financial settings`,
+      societyId: req.societyId,
+      metadata: updates
     });
 
     res.json({ message: "Settings updated successfully" });
@@ -190,15 +193,15 @@ router.get("/maintenance-status", authMiddleware, tenantMiddleware, async (req, 
   try {
     const db = getDb();
     const admin = getAdmin();
-    
+
     const usersSnap = await db.collection("users")
-        .where("societyId", "==", req.societyId)
-        .where("status", "==", "approved")
-        .get();
-    
+      .where("societyId", "==", req.societyId)
+      .where("status", "==", "approved")
+      .get();
+
     const liableUsers = usersSnap.docs
-        .map(d => ({uid: d.id, ...d.data()}))
-        .filter(u => u.maintenanceExempt !== true);
+      .map(d => ({ uid: d.id, ...d.data() }))
+      .filter(u => u.maintenanceExempt !== true);
 
     const settingsSnap = await db.collection("society_settings").doc(req.societyId).get();
     const maintenanceFee = settingsSnap.exists ? (settingsSnap.data().maintenanceFee || 625) : 625;
@@ -206,65 +209,62 @@ router.get("/maintenance-status", authMiddleware, tenantMiddleware, async (req, 
     const now = new Date();
     const monthsToCheck = [];
     for (let i = 0; i < 3; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        monthsToCheck.push({
-            name: d.toLocaleString('default', { month: 'short' }),
-            start: admin.firestore.Timestamp.fromDate(d),
-            end: admin.firestore.Timestamp.fromDate(new Date(d.getFullYear(), d.getMonth() + 1, 0))
-        });
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      monthsToCheck.push({
+        name: d.toLocaleString('default', { month: 'short' }),
+        start: admin.firestore.Timestamp.fromDate(d),
+        end: admin.firestore.Timestamp.fromDate(new Date(d.getFullYear(), d.getMonth() + 1, 0))
+      });
     }
 
     const oldestDate = monthsToCheck[monthsToCheck.length - 1].start;
     const transSnap = await db.collection("transactions")
-        .where("societyId", "==", req.societyId)
-        .where("createdAt", ">=", oldestDate)
-        .where("category", "==", "maintenance")
-        .where("type", "==", "credit")
-        .get();
+      .where("societyId", "==", req.societyId)
+      .where("createdAt", ">=", oldestDate)
+      .where("category", "==", "maintenance")
+      .where("type", "==", "credit")
+      .get();
 
     const payments = transSnap.docs.map(doc => doc.data());
 
     const overdueList = [];
-    const paidUids = new Set(); 
+    const paidUids = new Set();
 
     liableUsers.forEach(user => {
-        let monthsMissed = 0;
-        monthsToCheck.forEach((month, index) => {
-            const hasPaid = payments.some(p => 
-                p.addedBy === user.uid && 
-                p.createdAt.toMillis() >= month.start.toMillis() && 
-                p.createdAt.toMillis() <= month.end.toMillis()
-            );
+      let monthsMissed = 0;
+      monthsToCheck.forEach((month, index) => {
+        const hasPaid = payments.some(p =>
+          p.addedBy === user.uid &&
+          p.createdAt.toMillis() >= month.start.toMillis() &&
+          p.createdAt.toMillis() <= month.end.toMillis()
+        );
 
-            if (!hasPaid) {
-                monthsMissed++;
-            } else if (index === 0) {
-                paidUids.add(user.uid);
-            }
-        });
-
-        if (monthsMissed > 0) {
-            overdueList.push({
-                uid: user.uid,
-                name: user.name,
-                flatNumber: user.flatNumber,
-                amountOwed: monthsMissed * maintenanceFee,
-                monthsOverdue: monthsMissed,
-                unitInfo: `Unit ${user.flatNumber || 'N/A'} • ${monthsMissed} month${monthsMissed > 1 ? 's' : ''}`
-            });
+        if (!hasPaid) {
+          monthsMissed++;
+        } else if (index === 0) {
+          paidUids.add(user.uid);
         }
+      });
+
+      if (monthsMissed > 0) {
+        overdueList.push({
+          uid: user.uid,
+          name: user.name,
+          flatNumber: user.flatNumber,
+          amountOwed: monthsMissed * maintenanceFee,
+          monthsOverdue: monthsMissed,
+          unitInfo: `Unit ${user.flatNumber || 'N/A'} • ${monthsMissed} month${monthsMissed > 1 ? 's' : ''}`
+        });
+      }
     });
 
     res.json({
-        paid: liableUsers.filter(u => paidUids.has(u.uid)).map(u => ({uid: u.uid, name: u.name, flatNumber: u.flatNumber})),
-        unpaid: overdueList.sort((a, b) => b.amountOwed - a.amountOwed)
+      paid: liableUsers.filter(u => paidUids.has(u.uid)).map(u => ({ uid: u.uid, name: u.name, flatNumber: u.flatNumber })),
+      unpaid: overdueList.sort((a, b) => b.amountOwed - a.amountOwed)
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
-module.exports = router;
-
 
 module.exports = router;

@@ -245,4 +245,5 @@ export class ParserService {
     const rawChunks = await sentenceSplitter.splitText(text);
     return rawChunks.map(c => c.trim()).filter(c => c.length > 50);
   }
+}
 

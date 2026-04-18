@@ -14,11 +14,12 @@ class RegisterScreen extends StatefulWidget {
 
 class _RegisterScreenState extends State<RegisterScreen> {
   final _formKey    = GlobalKey<FormState>();
-  final _nameCtrl   = TextEditingController();
-  final _phoneCtrl  = TextEditingController();
-  final _passCtrl   = TextEditingController();
-  final _flatCtrl   = TextEditingController();
-  final _blockCtrl  = TextEditingController();
+  final _nameCtrl    = TextEditingController();
+  final _phoneCtrl   = TextEditingController();
+  final _passCtrl    = TextEditingController();
+  final _flatCtrl    = TextEditingController();
+  final _blockCtrl   = TextEditingController();
+  final _societyCtrl = TextEditingController();
 
   bool _loading  = false;
   bool _showPass = false;
@@ -31,6 +32,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _passCtrl.dispose();
     _flatCtrl.dispose();
     _blockCtrl.dispose();
+    _societyCtrl.dispose();
     super.dispose();
   }
 
@@ -44,6 +46,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         password: _passCtrl.text.trim(),
         flatNumber: _flatCtrl.text.trim(),
         blockName: _blockCtrl.text.trim().isEmpty ? null : _blockCtrl.text.trim(),
+        society_id: _societyCtrl.text.trim(),
       );
       if (!mounted) return;
       setState(() { _loading = false; _done = true; });
@@ -177,6 +180,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Society code
+                  TextFormField(
+                    controller: _societyCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    decoration: const InputDecoration(
+                      labelText: 'Society Code *',
+                      prefixIcon: Icon(Icons.business_rounded),
+                      hintText: 'e.g. SOCIETY_A',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Society code is required' : null,
+                  ),
+                  const SizedBox(height: 20),
+
                   // Full name
                   TextFormField(
                     controller: _nameCtrl,

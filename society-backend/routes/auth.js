@@ -82,7 +82,7 @@ router.post("/refresh", validate(RefreshTokenSchema), async (req, res) => {
                 phone: user.phone, 
                 role: user.role, 
                 name: user.name,
-                society_id: user.society_id || "main_society" 
+                society_id: user.society_id
             },
             JWT_SECRET,
             { expiresIn: JWT_EXPIRES_IN }
@@ -140,7 +140,7 @@ router.post("/logout-all", authMiddleware, async (req, res) => {
 // SECURITY: Strictly validated via Zod schemas.
 router.post("/register", validate(RegisterSchema), async (req, res) => {
     try {
-        const { name, phone, password, flatNumber, blockName } = req.body;
+        const { name, phone, password, flatNumber, blockName, society_id } = req.body;
 
         const cleanPhone = phone.replace(/\s+/g, "");
         const db = getDb();
@@ -161,6 +161,7 @@ router.post("/register", validate(RegisterSchema), async (req, res) => {
             password: hashedPassword,
             flatNumber,
             blockName: blockName || "",
+            society_id, // Partition ID
             role: "resident",
             status: "pending",       // pending | approved | rejected
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
@@ -278,7 +279,7 @@ router.post("/login", validate(LoginSchema), async (req, res) => {
                 phone: user.phone, 
                 role: user.role, 
                 name: user.name,
-                society_id: user.society_id || "main_society" 
+                society_id: user.society_id
             },
             JWT_SECRET,
             { expiresIn: JWT_EXPIRES_IN }
@@ -344,7 +345,7 @@ router.post("/approve/:uid", authMiddleware, mainAdminOnly, async (req, res) => 
         const userData = userDoc.data();
         
         // ❗ SEC FIX: Multi-tenant Assertion
-        if (userData.society_id !== societyId && societyId !== "main_society") {
+        if (userData.society_id !== societyId && req.user.role !== "superadmin") {
             logger.fatal({ admin: req.user.uid, target: req.params.uid }, "SEC-CRITICAL: Cross-tenant approval attempt!");
             return res.status(403).json({ error: "Access Denied: User belongs to a different society." });
         }
@@ -359,13 +360,12 @@ router.post("/approve/:uid", authMiddleware, mainAdminOnly, async (req, res) => 
             approvedBy: req.user.uid,
         });
 
-        const userData = userDoc.data();
-
         await db.collection("notifications").add({
             type: "registration_approved",
             title: "Registration approved!",
             body: `Welcome to the society, ${userData.name}! You can now log in to the app.`,
             targetUserId: req.params.uid,
+            society_id: societyId, // ❗ FIX: Ensures visibility in filtered feed
             read: false,
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
         });
@@ -398,12 +398,10 @@ router.post("/reject/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
         const userData = userDoc.data();
 
         // ❗ SEC FIX: Multi-tenant Assertion
-        if (userData.society_id !== societyId && societyId !== "main_society") {
+        if (userData.society_id !== societyId && req.user.role !== "superadmin") {
             logger.fatal({ admin: req.user.uid, target: req.params.uid }, "SEC-CRITICAL: Cross-tenant rejection attempt!");
             return res.status(403).json({ error: "Access Denied: User belongs to a different society." });
         }
-
-        const userData = userDoc.data();
 
         await db.collection("notifications").add({
             type: "registration_rejected",
@@ -412,6 +410,7 @@ router.post("/reject/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
                 ? `Your registration was not approved. Reason: ${reason}`
                 : "Your registration was not approved. Please contact the admin for more information.",
             targetUserId: req.params.uid,
+            society_id: societyId, // ❗ FIX: Ensures visibility in filtered feed
             read: false,
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
         });
@@ -467,7 +466,18 @@ router.get("/notifications", authMiddleware, async (req, res) => {
 router.patch("/notifications/:id/read", authMiddleware, async (req, res) => {
     try {
         const db = getDb();
-        await db.collection("notifications").doc(req.params.id).update({ read: true });
+        const docRef = db.collection("notifications").doc(req.params.id);
+        const doc = await docRef.get();
+
+        if (!doc.exists) return res.status(404).json({ error: "Notification not found" });
+
+        // SECURITY: Ensure user only marks their own or their society's admin notifications
+        const data = doc.data();
+        if (data.targetUserId !== req.user.uid && data.society_id !== req.user.society_id) {
+            return res.status(403).json({ error: "Unauthorized access to notification" });
+        }
+
+        await docRef.update({ read: true });
         res.json({ message: "Marked as read" });
     } catch (err) {
         res.status(500).json({ error: err.message });

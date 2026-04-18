@@ -89,7 +89,7 @@ export class VectorStoreService {
       const duration = Date.now() - startTime;
       logger.info({ 
         ...options,
-        societyId: society_id, 
+        society_id: society_id, 
         latency_ms: duration, 
         results_counts: result.rows.length,
         status: "success"
@@ -102,7 +102,7 @@ export class VectorStoreService {
     } catch (error: any) {
       logger.error({ 
         ...options,
-        societyId: society_id, 
+        society_id: society_id, 
         error: error.message, 
         status: "failed" 
       }, "AI Hybrid Search Request Failed");

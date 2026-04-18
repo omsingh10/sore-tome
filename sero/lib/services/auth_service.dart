@@ -2,11 +2,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter/foundation.dart';
+import '../config/env.dart';
 
-// Use localhost for Web/Desktop, local IP for physical Android/iOS device
-final String kBaseUrl = (kIsWeb || defaultTargetPlatform == TargetPlatform.windows)
-    ? 'http://localhost:3000'
-    : 'http://192.168.182.192:3000';
+// Use centralized environment config
+final String kBaseUrl = Environment.apiBaseUrl.replaceAll('/api/v1', '');
 
 class AuthService {
   static const _storage = FlutterSecureStorage();
@@ -17,6 +16,7 @@ class AuthService {
     required String phone,
     required String password,
     required String flatNumber,
+    required String society_id,
     String? blockName,
   }) async {
     final response = await http.post(
@@ -27,6 +27,7 @@ class AuthService {
         'phone': phone,
         'password': password,
         'flatNumber': flatNumber,
+        'society_id': society_id,
         'blockName': blockName ?? '',
       }),
     );

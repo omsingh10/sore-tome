@@ -12,7 +12,7 @@ export interface AuditLogItem {
     actorName: string;
     details: string;
     metadata?: Record<string, any>;
-    societyId: string;
+    society_id: string;
     createdAt?: any;
 }
 
@@ -53,11 +53,11 @@ export class AuditLogService {
     /**
      * Retrieval of logs with filtering
      */
-    public async getLogs(societyId: string, type?: string, limit = 50) {
+    public async getLogs(society_id: string, type?: string, limit = 50) {
         try {
             const db = getDb();
             let query = db.collection("audit_logs")
-                .where("societyId", "==", societyId)
+                .where("society_id", "==", society_id)
                 .orderBy("createdAt", "desc");
 
             if (type && type !== 'all') {
@@ -89,7 +89,7 @@ export class AuditLogService {
             actorName: actor.name || 'Admin',
             details,
             metadata,
-            societyId: 'global' // Defaulting to global since we only have one society for now
+            society_id: actor.society_id || 'global'
         });
     }
 
@@ -101,7 +101,7 @@ export class AuditLogService {
             actorName,
             details,
             metadata,
-            societyId: 'global'
+            society_id: 'global'
         });
     }
 }

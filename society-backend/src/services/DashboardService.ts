@@ -37,16 +37,16 @@ export class DashboardService {
 
     // 1. Fetch Pending Approvals Count (Filtered by societyId)
     const pendingSnap = await db.collection("users")
-      .where("societyId", "==", societyId)
+      .where("society_id", "==", societyId)
       .where("status", "==", "pending")
       .get();
     const pendingApprovalsCount = pendingSnap.size;
 
     // 2. Fetch Top Issues (Sorted by Priority, Filtered by societyId)
     const issuesSnap = await db.collection("issues")
-      .where("societyId", "==", societyId)
+      .where("society_id", "==", societyId)
       .where("status", "==", "open")
-      .orderBy("priority", "desc") // Relies on Composite Index: (societyId + status + priority)
+      .orderBy("priority", "desc") // Relies on Composite Index: (society_id + status + priority)
       .limit(3)
       .get();
     
@@ -57,13 +57,13 @@ export class DashboardService {
 
     // 3. Recent Updates (Filtered by societyId)
     const noticesSnap = await db.collection("notices")
-      .where("societyId", "==", societyId)
+      .where("society_id", "==", societyId)
       .orderBy("createdAt", "desc")
       .limit(3)
       .get();
     
     const eventsSnap = await db.collection("events")
-      .where("societyId", "==", societyId)
+      .where("society_id", "==", societyId)
       .orderBy("createdAt", "desc")
       .limit(3)
       .get();
@@ -79,7 +79,7 @@ export class DashboardService {
 
     // 4. Financial Summary (Filtered by societyId)
     const transSnap = await db.collection("transactions")
-      .where("societyId", "==", societyId)
+      .where("society_id", "==", societyId)
       .get();
     let totalCollected = 0;
     let totalSpent = 0;
@@ -96,7 +96,7 @@ export class DashboardService {
 
     // 6. Active Residents (Filtered by societyId)
     const activeResidentsSnap = await db.collection("users")
-      .where("societyId", "==", societyId)
+      .where("society_id", "==", societyId)
       .where("status", "==", "approved")
       .get();
     const activeResidentsCount = activeResidentsSnap.size;

@@ -1,26 +1,26 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/admin/audit_log_provider.dart';
 
-class AuditDashboardScreen extends StatefulWidget {
+class AuditDashboardScreen extends ConsumerStatefulWidget {
   const AuditDashboardScreen({super.key});
 
   @override
-  State<AuditDashboardScreen> createState() => _AuditDashboardScreenState();
+  ConsumerState<AuditDashboardScreen> createState() => _AuditDashboardScreenState();
 }
 
-class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
+class _AuditDashboardScreenState extends ConsumerState<AuditDashboardScreen> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuditLogProvider>().fetchLogs();
+      ref.read(auditLogProvider.notifier).fetchLogs();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AuditLogProvider>();
+    final auditData = ref.watch(auditLogProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -28,15 +28,15 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () => provider.fetchLogs(),
+            onPressed: () => ref.read(auditLogProvider.notifier).fetchLogs(),
           )
         ],
       ),
-      body: provider.isLoading && provider.logs.isEmpty
+      body: auditData.isLoading && auditData.logs.isEmpty
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                if (provider.hasAnomaly)
+                if (auditData.hasAnomaly)
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -47,7 +47,7 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            provider.anomalyMessage ?? 'High failure rate detected! Possible abuse or prompt injection attack.',
+                            auditData.anomalyMessage ?? 'High failure rate detected! Possible abuse or prompt injection attack.',
                             style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -56,9 +56,9 @@ class _AuditDashboardScreenState extends State<AuditDashboardScreen> {
                   ),
                 Expanded(
                   child: ListView.builder(
-                    itemCount: provider.logs.length,
+                    itemCount: auditData.logs.length,
                     itemBuilder: (context, index) {
-                      final log = provider.logs[index];
+                      final log = auditData.logs[index];
                       final isError = log.status == 'failed';
                       
                       return Card(

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart' as prov;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/rules_provider.dart';
 import '../../providers/shared/auth_provider.dart';
@@ -16,13 +15,13 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<RulesProvider>().fetchRules();
+      ref.read(rulesProvider.notifier).fetchRules();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final rulesProvider = prov.Provider.of<RulesProvider>(context, listen: true);
+    final rules = ref.watch(rulesProvider);
     final user = ref.watch(authProvider).value;
     final isAdmin = user?.role == 'admin' || user?.role == 'main_admin';
 
@@ -44,25 +43,25 @@ class _RulesScreenState extends ConsumerState<RulesScreen> {
                 filled: true,
                 fillColor: Colors.grey[100],
               ),
-              onChanged: (val) => rulesProvider.search(val),
+              onChanged: (val) => ref.read(rulesProvider.notifier).search(val),
             ),
           ),
 
           // 2. Rules List
           Expanded(
-            child: rulesProvider.isLoading 
+            child: rules.isLoading 
               ? const Center(child: CircularProgressIndicator())
-              : rulesProvider.rules.isEmpty
+              : rules.filteredRules.isEmpty
                 ? const Center(child: Text('No rules found matching your search.'))
-                : _buildGroupedList(rulesProvider, isAdmin),
+                : _buildGroupedList(rules, isAdmin),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildGroupedList(RulesProvider provider, bool isAdmin) {
-    final groups = provider.groupedRules;
+  Widget _buildGroupedList(RulesState state, bool isAdmin) {
+    final groups = state.groupedRules;
 
     return ListView.builder(
       itemCount: groups.length,

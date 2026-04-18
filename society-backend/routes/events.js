@@ -2,12 +2,17 @@ const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageContent } = require("../middleware/auth");
+const { tenantMiddleware } = require("../middleware/tenantMiddleware");
 
-// GET /events — upcoming events
-router.get("/", authMiddleware, async (req, res) => {
+// GET /events — upcoming events (Partitioned)
+router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
   try {
     const db = getDb();
-    const snap = await db.collection("events").orderBy("date", "asc").limit(20).get();
+    const snap = await db.collection("events")
+      .where("society_id", "==", req.societyId)
+      .orderBy("date", "asc")
+      .limit(20)
+      .get();
     const events = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     res.json({ events });
   } catch (err) {
@@ -17,7 +22,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
 // POST /events — admin only: create an event
 // Body: { title, description, date (ISO string), location? }
-router.post("/", authMiddleware, canManageContent, async (req, res) => {
+router.post("/", authMiddleware, tenantMiddleware, canManageContent, async (req, res) => {
   try {
     const { title, description, date, location } = req.body;
     if (!title || !date)
@@ -25,6 +30,7 @@ router.post("/", authMiddleware, canManageContent, async (req, res) => {
 
     const db = getDb();
     const docRef = await db.collection("events").add({
+      society_id: req.societyId, // MANDATORY partition
       title,
       description: description || "",
       date: new Date(date),
@@ -40,10 +46,17 @@ router.post("/", authMiddleware, canManageContent, async (req, res) => {
 });
 
 // DELETE /events/:id — admin only
-router.delete("/:id", authMiddleware, canManageContent, async (req, res) => {
+router.delete("/:id", authMiddleware, tenantMiddleware, canManageContent, async (req, res) => {
   try {
     const db = getDb();
-    await db.collection("events").doc(req.params.id).delete();
+    const docRef = db.collection("events").doc(req.params.id);
+    const doc = await docRef.get();
+
+    if (!doc.exists || doc.data().society_id !== req.societyId) {
+       return res.status(404).json({ error: "Event not found" });
+    }
+
+    await docRef.delete();
     res.json({ message: "Event deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

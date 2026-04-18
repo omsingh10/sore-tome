@@ -2,14 +2,18 @@ const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageContent } = require("../middleware/auth");
+const { tenantMiddleware } = require("../middleware/tenantMiddleware");
 
 // ─── RULES ────────────────────────────────────────────────────────────────────
 
-// GET /rules — all society rules
-router.get("/", authMiddleware, async (req, res) => {
+// GET /rules — all society rules (Partitioned)
+router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
   try {
     const db = getDb();
-    const snap = await db.collection("rules").orderBy("order", "asc").get();
+    const snap = await db.collection("rules")
+      .where("society_id", "==", req.societyId)
+      .orderBy("order", "asc")
+      .get();
     const rules = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     res.json({ rules });
   } catch (err) {
@@ -19,7 +23,7 @@ router.get("/", authMiddleware, async (req, res) => {
 
 // POST /rules — admin only: add a rule
 // Body: { title, content, category, order? }
-router.post("/", authMiddleware, canManageContent, async (req, res) => {
+router.post("/", authMiddleware, tenantMiddleware, canManageContent, async (req, res) => {
   try {
     const { title, content, category = "general", order = 99 } = req.body;
     if (!title || !content)
@@ -27,6 +31,7 @@ router.post("/", authMiddleware, canManageContent, async (req, res) => {
 
     const db = getDb();
     const docRef = await db.collection("rules").add({
+      society_id: req.societyId, // MANDATORY partition
       title,
       content,
       category, // "timings" | "parking" | "pets" | "noise" | "general"
@@ -42,17 +47,24 @@ router.post("/", authMiddleware, canManageContent, async (req, res) => {
 });
 
 // PUT /rules/:id — admin only: update a rule
-router.put("/:id", authMiddleware, canManageContent, async (req, res) => {
+router.put("/:id", authMiddleware, tenantMiddleware, canManageContent, async (req, res) => {
   try {
     const { title, content, category, order } = req.body;
     const db = getDb();
+    const docRef = db.collection("rules").doc(req.params.id);
+    const doc = await docRef.get();
+
+    if (!doc.exists || doc.data().society_id !== req.societyId) {
+      return res.status(404).json({ error: "Rule not found" });
+    }
+
     const updates = { updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(), updatedBy: req.user.uid };
     if (title) updates.title = title;
     if (content) updates.content = content;
     if (category) updates.category = category;
     if (order !== undefined) updates.order = order;
 
-    await db.collection("rules").doc(req.params.id).update(updates);
+    await docRef.update(updates);
     res.json({ message: "Rule updated" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -60,10 +72,17 @@ router.put("/:id", authMiddleware, canManageContent, async (req, res) => {
 });
 
 // DELETE /rules/:id — admin only
-router.delete("/:id", authMiddleware, canManageContent, async (req, res) => {
+router.delete("/:id", authMiddleware, tenantMiddleware, canManageContent, async (req, res) => {
   try {
     const db = getDb();
-    await db.collection("rules").doc(req.params.id).delete();
+    const docRef = db.collection("rules").doc(req.params.id);
+    const doc = await docRef.get();
+
+    if (!doc.exists || doc.data().society_id !== req.societyId) {
+      return res.status(404).json({ error: "Rule not found" });
+    }
+
+    await docRef.delete();
     res.json({ message: "Rule deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

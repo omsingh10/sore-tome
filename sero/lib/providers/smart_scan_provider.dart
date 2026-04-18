@@ -1,69 +1,86 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/ocr_service.dart';
 
 enum SmartScanState { idle, scanning, parsing, confirmation, saving, success, error }
 
-class SmartScanProvider with ChangeNotifier {
-  SmartScanState _state = SmartScanState.idle;
-  String _errorMessage = "";
-  
-  // Parsed Data
-  Map<String, dynamic>? _extractedData;
+class SmartScanData {
+  final SmartScanState state;
+  final String errorMessage;
+  final Map<String, dynamic>? extractedData;
 
-  SmartScanState get state => _state;
-  String get errorMessage => _errorMessage;
-  Map<String, dynamic>? get extractedData => _extractedData;
+  SmartScanData({
+    this.state = SmartScanState.idle,
+    this.errorMessage = "",
+    this.extractedData,
+  });
+
+  SmartScanData copyWith({
+    SmartScanState? state,
+    String? errorMessage,
+    Map<String, dynamic>? extractedData,
+  }) {
+    return SmartScanData(
+      state: state ?? this.state,
+      errorMessage: errorMessage ?? this.errorMessage,
+      extractedData: extractedData ?? this.extractedData,
+    );
+  }
+}
+
+class SmartScanNotifier extends StateNotifier<SmartScanData> {
+  SmartScanNotifier() : super(SmartScanData());
 
   /// Trigger the AI Parsing Flow
   Future<void> processReceiptImage(String base64Image) async {
-    _state = SmartScanState.parsing;
-    _errorMessage = "";
-    notifyListeners();
+    state = state.copyWith(state: SmartScanState.parsing, errorMessage: "");
 
     try {
       final result = await OcrService.extractReceipt(base64Image);
-      _extractedData = result;
-      _state = SmartScanState.confirmation; // ❗ V5.2 Safety Requirement: Must confirm
+      state = state.copyWith(
+        extractedData: result,
+        state: SmartScanState.confirmation, // ❗ V5.2 Safety Requirement: Must confirm
+      );
     } catch (e) {
-      _errorMessage = e.toString();
-      _state = SmartScanState.error;
-    } finally {
-      notifyListeners();
+      state = state.copyWith(
+        errorMessage: e.toString(),
+        state: SmartScanState.error,
+      );
     }
   }
 
   /// Update individual field during confirmation step
   void updateField(String key, dynamic value) {
-    if (_extractedData != null) {
-      _extractedData![key] = value;
-      notifyListeners();
+    if (state.extractedData != null) {
+      final newData = Map<String, dynamic>.from(state.extractedData!);
+      newData[key] = value;
+      state = state.copyWith(extractedData: newData);
     }
   }
 
   /// User confirms the edited/reviewed data and submits
   Future<bool> commitTransaction(Future<void> Function(Map<String, dynamic>) saveCallback) async {
-    if (_extractedData == null) return false;
+    if (state.extractedData == null) return false;
 
-    _state = SmartScanState.saving;
-    notifyListeners();
+    state = state.copyWith(state: SmartScanState.saving);
 
     try {
-      await saveCallback(_extractedData!);
-      _state = SmartScanState.success;
+      await saveCallback(state.extractedData!);
+      state = state.copyWith(state: SmartScanState.success);
       return true;
     } catch (e) {
-      _errorMessage = 'Failed to save transaction: $e';
-      _state = SmartScanState.error;
+      state = state.copyWith(
+        errorMessage: 'Failed to save transaction: $e',
+        state: SmartScanState.error,
+      );
       return false;
-    } finally {
-      notifyListeners();
     }
   }
 
   void reset() {
-    _state = SmartScanState.idle;
-    _extractedData = null;
-    _errorMessage = "";
-    notifyListeners();
+    state = SmartScanData();
   }
 }
+
+final smartScanProvider = StateNotifierProvider<SmartScanNotifier, SmartScanData>((ref) {
+  return SmartScanNotifier();
+});

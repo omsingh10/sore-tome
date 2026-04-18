@@ -39,7 +39,7 @@ export class OutboxService {
    * Enqueues a side-effect for reliable execution.
    * ❗ REDIS-DEGRADED: Logs failure if Redis is down but doesn't crash requester.
    */
-  public async enqueue(type: OutboxEventType, payload: any, societyId: string) {
+  public async enqueue(type: OutboxEventType, payload: any, society_id: string) {
     const sequenceId = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
     
     try {
@@ -50,18 +50,18 @@ export class OutboxService {
 
       await this.queue.add(type, {
         ...payload,
-        societyId,
+        society_id,
         sequenceId,
         timestamp: new Date().toISOString()
       }, {
         jobId: `outbox:${sequenceId}`
       });
 
-      logger.debug({ type, sequenceId, societyId }, "Outbox event queued");
+      logger.debug({ type, sequenceId, society_id }, "Outbox event queued");
     } catch (err: any) {
       logger.fatal({ 
         type, 
-        societyId, 
+        society_id, 
         error: err.message 
       }, "REDIS-DEGRADED: Failed to enqueue outbox event. Consistency risk!");
       // Optionally: Persist to a fallback local log/file if critical
@@ -70,22 +70,22 @@ export class OutboxService {
 
   private startWorker() {
     const worker = new Worker("production-outbox-queue", async (job: Job) => {
-      const { type, societyId, sequenceId } = job.data;
+      const { type, society_id, sequenceId } = job.data;
       
-      logger.info({ type, sequenceId, societyId }, "Outbox Worker: Processing event");
+      logger.info({ type, sequenceId, society_id }, "Outbox Worker: Processing event");
 
       try {
         switch (job.name as OutboxEventType) {
           case "SYNC_STATS":
             const { AIToolService } = await import("../services/ai/AIToolService.js");
-            await AIToolService.getInstance().syncSocietyStats(societyId);
+            await AIToolService.getInstance().syncSocietyStats(society_id || 'global');
             break;
 
           case "SEND_NOTIFICATION":
             const dbFirestore = getDb();
             await dbFirestore.collection("notifications").add({
               ...job.data.notification,
-              society_id: societyId,
+              society_id: society_id,
               createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
             });
             break;

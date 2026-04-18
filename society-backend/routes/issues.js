@@ -1,3 +1,6 @@
+const express = require("express");
+const router = express.Router();
+const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageContent } = require("../middleware/auth");
 const { tenantMiddleware } = require("../middleware/tenantMiddleware");
 const { AuditLogService } = require("../src/services/AuditLogService");
@@ -13,7 +16,7 @@ router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
     const { status } = req.query; 
     const societyId = req.societyId;
 
-    let query = db.collection("issues").where("societyId", "==", societyId);
+    let query = db.collection("issues").where("society_id", "==", societyId);
     
     if (req.user.role === "resident") {
       // Residents see: (PostedBy == Me) OR (Status == open)
@@ -21,13 +24,13 @@ router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
       // We'll perform two targeted indexed queries and merge to ensure O(log N) performance
       const [mySnap, openSnap] = await Promise.all([
         db.collection("issues")
-          .where("societyId", "==", societyId)
+          .where("society_id", "==", societyId)
           .where("postedBy", "==", req.user.uid)
           .orderBy("createdAt", "desc")
           .limit(50)
           .get(),
         db.collection("issues")
-          .where("societyId", "==", societyId)
+          .where("society_id", "==", societyId)
           .where("status", "==", "open")
           .orderBy("createdAt", "desc")
           .limit(50)
@@ -83,7 +86,7 @@ router.get("/:id", authMiddleware, tenantMiddleware, async (req, res) => {
     const doc = await db.collection("issues").doc(req.params.id).get();
     
     // Mask existence: if not exists OR wrong society, return 404
-    if (!doc.exists || doc.data().societyId !== req.societyId) {
+    if (!doc.exists || doc.data().society_id !== req.societyId) {
       return res.status(404).json({ error: "Issue not found" });
     }
 
@@ -115,7 +118,7 @@ router.post("/", authMiddleware, tenantMiddleware, validate(CreateIssueSchema), 
     const { title, description, category, priority } = req.body;
     const db = getDb();
     const docRef = await db.collection("issues").add({
-      societyId: req.societyId, // MANDATORY: Multi-tenancy partition
+      society_id: req.societyId, // MANDATORY: Multi-tenancy partition
       title,
       description,
       category,
@@ -162,7 +165,7 @@ router.patch("/:id/status", authMiddleware, tenantMiddleware, canManageContent, 
        actorId: req.user.uid,
        actorName: req.user.name || "Admin",
        details: `Changed issue status to "${status}"`,
-       societyId: req.societyId,
+       society_id: req.societyId,
        metadata: { issueId: req.params.id }
     });
 
@@ -193,8 +196,5 @@ router.delete("/:id", authMiddleware, tenantMiddleware, async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
-module.exports = router;
-
 
 module.exports = router;

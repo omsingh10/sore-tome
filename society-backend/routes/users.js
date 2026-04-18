@@ -6,10 +6,10 @@ const { AuditLogService } = require("../src/services/AuditLogService");
 
 // POST /users/register — called after Firebase phone OTP success
 // Flutter sends this after first login to save user profile in Firestore
-// Body: { name, flatNumber, phone }
+// Body: { name, flatNumber, phone, society_id }
 router.post("/register", authMiddleware, async (req, res) => {
   try {
-    const { name, flatNumber, phone } = req.body;
+    const { name, flatNumber, phone, society_id } = req.body;
     if (!name || !flatNumber)
       return res.status(400).json({ error: "name and flatNumber are required" });
 
@@ -26,9 +26,10 @@ router.post("/register", authMiddleware, async (req, res) => {
       name,
       flatNumber,
       phone: phone || "",
-      email: req.user.email || "",
+      society_id: society_id || "main_society", // Fallback for legacy if not provided
       role: "resident", // default role
       residentType: "owner", // owner | tenant | guest
+      status: "pending",
       maintenanceExempt: false,
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     };
@@ -52,11 +53,17 @@ router.get("/me", authMiddleware, async (req, res) => {
   }
 });
 
-// GET /users — admin only: list all users
+// GET /users — admin only: list all users IN THEIR SOCIETY
 router.get("/", authMiddleware, mainAdminOnly, async (req, res) => {
   try {
     const db = getDb();
-    const snap = await db.collection("users").orderBy("flatNumber", "asc").get();
+    const societyId = req.user.society_id;
+    
+    const snap = await db.collection("users")
+      .where("society_id", "==", societyId)
+      .orderBy("flatNumber", "asc")
+      .get();
+      
     const users = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     res.json({ users, total: users.length });
   } catch (err) {

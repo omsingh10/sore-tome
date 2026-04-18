@@ -78,10 +78,12 @@ export class AIChatService {
     societyId: string, 
     userMessage: string,
     base64Image?: string,
-    contextData?: any
+    contextData?: any,
+    userRole: string = "resident",
+    history: any[] = []
   ): Promise<any> {
     const requestId = `chat_json_${Date.now()}`;
-    const context = { requestId, userId, societyId };
+    const context = { requestId, userId, societyId, userRole };
 
     try {
       let fileContent = "";
@@ -115,7 +117,7 @@ export class AIChatService {
         return parsed || { type: "text", reply: cached };
       }
 
-      const { messages, sources } = await this.prepareContext(userId, societyId, safeInput, context, fileContent, contextData);
+      const { messages, sources, ragContext } = await this.prepareContext(userId, societyId, safeInput, context, fileContent, contextData, userRole, history);
 
       const model = await this.provider.getRouteModel("RETRIEVAL", context);
       const response = await model.invoke(messages);
@@ -226,22 +228,33 @@ export class AIChatService {
     safeInput: string, 
     context: any,
     fileContent: string = "",
-    contextData?: any
+    contextData?: any,
+    userRole: string = "resident",
+    manualHistory: any[] = []
   ) {
     const relatedDocs = await this.vectorStore.hybridSearch(safeInput, societyId, context, 3);
     const ragContext = relatedDocs.map(d => d.pageContent).join("\n---\n");
 
-    // Phase 3: Extract sources with snippets
     const sources = relatedDocs.map(d => ({
       file: d.metadata.source || "unknown",
       page: d.metadata.page || 0,
       snippet: d.pageContent.slice(0, 120).trim() + "..."
     }));
 
-    const chatHistory = await this.memory.getShortTermHistory(userId, societyId);
+    // Combine local DB history with optional manual history from UI (UI takes priority for current session)
+    const dbHistory = await this.memory.getShortTermHistory(userId, societyId);
+    const combinedHistory = manualHistory.length > 0 ? manualHistory : dbHistory;
     
+    // AI V3.15: Persona-Based Intelligence
+    const isAdmin = ["admin", "main_admin", "secretary", "treasurer"].includes(userRole);
+    const persona = isAdmin 
+      ? "Sero Society Intelligence (Admin Mode). You have high-clearance access to society data." 
+      : "Sero Resident Concierge. You are a helpful assistant for society residents.";
+
     const systemPrompt = `
-      You are a helpful assistant for a Society Management App.
+      You are ${persona}.
+      Your specific role is: ${userRole}.
+      
       Use the following context to answer if relevant.
       Context: ${ragContext}
       
@@ -253,13 +266,13 @@ export class AIChatService {
          Return ONLY a JSON object: {"type": "draft", "title": "Water Shutdown", "content": "Please be advised..."}
       2. If you are proposing a SYSTEM ACTION (create_notice, log_expense, create_complaint):
          Return ONLY a JSON object: {"type": "action", "tool": "create_complaint", "params": {"title": "Basement Leak", "description": "Water leaking from ceiling", "priority": "high"}, "reply": "I've drafted a priority complaint for the basement leak. Shall I submit it?"}
-      3. For standard conversation, assistance, or general queries (e.g. 'What are the rules?'):
+      3. For standard conversation, assistance, or general queries:
          DO NOT use JSON. Return standard, helpful conversational text using markdown.
     `;
 
     const messages = [
       new SystemMessage(systemPrompt),
-      ...chatHistory.map(h => h.role === "human" ? new HumanMessage(h.content) : new AIMessage(h.content)),
+      ...combinedHistory.map(h => h.role === "human" || h.role === "user" ? new HumanMessage(h.content) : new AIMessage(h.content)),
       new HumanMessage(safeInput)
     ];
 

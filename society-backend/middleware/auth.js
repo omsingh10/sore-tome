@@ -19,7 +19,7 @@ function authMiddleware(req, res, next) {
       phone: decoded.phone,
       name: decoded.name,
       role: decoded.role, // "resident" | "admin" | "superadmin"
-      society_id: decoded.society_id || "main_society",
+      society_id: decoded.society_id,
     };
     next();
   } catch (err) {

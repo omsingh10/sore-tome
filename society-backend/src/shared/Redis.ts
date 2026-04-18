@@ -10,7 +10,7 @@ class RedisClient {
     const redisUrl = process.env.REDIS_URL || "redis://localhost:6379";
     
     this.client = new IORedis(redisUrl, {
-      maxRetriesPerRequest: 3,
+      maxRetriesPerRequest: null,
       retryStrategy: (times: number) => Math.min(times * 100, 3000),
       keepAlive: 10000,
       tls: redisUrl.startsWith("rediss://") ? {} : undefined,

@@ -23,6 +23,7 @@ const messageRateLimiter = rateLimit({
   message: { error: "Slow down. Message rate limit exceeded." },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { default: false },
 });
 
 startMediaCleaner();
@@ -34,7 +35,7 @@ async function checkChannelAccess(req, res, next) {
     const channelId = req.params.id;
     const channelDoc = await db.collection("channels").doc(channelId).get();
 
-    if (!channelDoc.exists || channelDoc.data().societyId !== req.societyId) {
+    if (!channelDoc.exists || channelDoc.data().society_id !== req.societyId) {
       return res.status(404).json({ error: "Channel not found" });
     }
 
@@ -55,7 +56,7 @@ router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
   try {
     const db = getDb();
     let query = db.collection("channels")
-      .where("societyId", "==", req.societyId)
+      .where("society_id", "==", req.societyId)
       .orderBy("createdAt", "desc");
     
     if (req.user.role !== "main_admin" && req.user.role !== "superadmin" && req.user.role !== "secretary") {
@@ -85,7 +86,7 @@ router.post("/", authMiddleware, tenantMiddleware, mainAdminOnly, async (req, re
 
     const db = getDb();
     const docRef = await db.collection("channels").add({
-      societyId: req.societyId, // MANDATORY partition
+      society_id: req.societyId, // MANDATORY partition
       name,
       description: description || "",
       isReadOnly,

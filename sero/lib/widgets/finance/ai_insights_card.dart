@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/finance_provider.dart';
 import '../common/sparkline_widget.dart';
 
-class AiInsightsCard extends StatefulWidget {
+class AiInsightsCard extends ConsumerStatefulWidget {
   const AiInsightsCard({super.key});
 
   @override
-  State<AiInsightsCard> createState() => _AiInsightsCardState();
+  ConsumerState<AiInsightsCard> createState() => _AiInsightsCardState();
 }
 
-class _AiInsightsCardState extends State<AiInsightsCard> {
+class _AiInsightsCardState extends ConsumerState<AiInsightsCard> {
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FinanceProvider>().fetchFinanceAnalysis();
+      ref.read(financeProvider.notifier).fetchFinanceAnalysis();
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final finance = context.watch<FinanceProvider>();
+    final finance = ref.watch(financeProvider);
 
     if (finance.isLoading && finance.analysis == null) {
       return const Card(
@@ -42,7 +42,7 @@ class _AiInsightsCardState extends State<AiInsightsCard> {
             const Spacer(),
             IconButton(
               icon: const Icon(Icons.refresh, size: 16),
-              onPressed: () => context.read<FinanceProvider>().fetchFinanceAnalysis(forceRefresh: true),
+              onPressed: () => ref.read(financeProvider.notifier).fetchFinanceAnalysis(forceRefresh: true),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(),
             )
@@ -63,7 +63,7 @@ class _AiInsightsCardState extends State<AiInsightsCard> {
         children: [
           const Text('AI FINANCIAL INSIGHTS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.1)),
           InkWell(
-            onTap: () => context.read<FinanceProvider>().fetchFinanceAnalysis(forceRefresh: true),
+            onTap: () => ref.read(financeProvider.notifier).fetchFinanceAnalysis(forceRefresh: true),
             child: const Icon(Icons.refresh, size: 14, color: Colors.grey),
           )
         ],

@@ -160,7 +160,7 @@ export class AIToolService {
    * ❗ PRO FIX: Reads from precomputed aggregate doc instead of scanning collections.
    */
   public async getSocietyStats(societyId: string) {
-    const targetSocietyId = societyId || "main_society";
+    const targetSocietyId = societyId;
     this.assertSocietyMatch(targetSocietyId, societyId);
 
     const db = getDb();
@@ -218,7 +218,7 @@ export class AIToolService {
    * AI V3.11: Proactive Society Digest Aggregator
    */
   public async getSocietyDigest(societyId: string) {
-    const targetSocietyId = societyId || "main_society";
+    const targetSocietyId = societyId;
     // ❗ PRO FIX: Tenant Assertion
     this.assertSocietyMatch(targetSocietyId, societyId);
 
@@ -272,7 +272,7 @@ export class AIToolService {
    * AI V3.10: Financial Analysis Tool with Redis caching.
    */
   public async analyzeExpenses(societyId: string) {
-    const targetSocietyId = societyId || "main_society";
+    const targetSocietyId = societyId;
     // ❗ PRO FIX: Tenant Assertion
     this.assertSocietyMatch(targetSocietyId, societyId);
 

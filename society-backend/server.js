@@ -18,28 +18,34 @@ Sentry.init({
 });
 
 const express = require("express");
+const rateLimit = require("express-rate-limit");
+const helmet = require("helmet");
+const { initFirebase } = require("./config/firebase");
 const standardLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per 15 minutes per IP
+  windowMs: 15 * 60 * 1000, 
+  max: 100, 
   message: { error: "Too many requests from this IP, please try again after 15 minutes" },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { default: false },
 });
 
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // STRICT: 5 attempts per window
+  windowMs: 15 * 60 * 1000, 
+  max: 5, 
   message: { error: "Too many login/signup attempts, please try again after 15 minutes" },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { default: false },
 });
 
 const aiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 10, // 10 requests per minute
+  windowMs: 1 * 60 * 1000, 
+  max: 10, 
   message: { error: "AI request limit reached. Please wait a moment." },
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { default: false },
 });
 
 // ─── Init Firebase ─────────────────────────────────────────────────────────────
@@ -83,12 +89,6 @@ v1Router.use("/admin", standardLimiter, require("./routes/admin_flags"));
 
 // 🚀 MOUNT V1
 app.use("/api/v1", v1Router);
-
-const aiRoutes = require("./src/routes/ai");
-const systemRoutes = require("./src/routes/system").default;
-
-app.use("/api/v1/ai", aiRoutes);
-app.use("/api/v1/system", systemRoutes);
 
 // 🛡️ MOUNT LEGACY FALLBACK (WITH DEPRECATION DATA)
 app.use("/", (req, res, next) => {

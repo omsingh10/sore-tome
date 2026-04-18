@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import '../../services/api_client.dart';
 
@@ -37,49 +37,76 @@ class AuditLog {
   }
 }
 
-class AuditLogProvider extends ChangeNotifier {
-  List<AuditLog> _logs = [];
-  bool _isLoading = false;
-  bool _hasAnomaly = false;
-  String? _anomalyMessage;
-  String? _error;
+class AuditLogState {
+  final List<AuditLog> logs;
+  final bool isLoading;
+  final bool hasAnomaly;
+  final String? anomalyMessage;
+  final String? error;
 
-  List<AuditLog> get logs => _logs;
-  bool get isLoading => _isLoading;
-  bool get hasAnomaly => _hasAnomaly;
-  String? get anomalyMessage => _anomalyMessage;
-  String? get error => _error;
+  AuditLogState({
+    this.logs = const [],
+    this.isLoading = false,
+    this.hasAnomaly = false,
+    this.anomalyMessage,
+    this.error,
+  });
+
+  AuditLogState copyWith({
+    List<AuditLog>? logs,
+    bool? isLoading,
+    bool? hasAnomaly,
+    String? anomalyMessage,
+    String? error,
+  }) {
+    return AuditLogState(
+      logs: logs ?? this.logs,
+      isLoading: isLoading ?? this.isLoading,
+      hasAnomaly: hasAnomaly ?? this.hasAnomaly,
+      anomalyMessage: anomalyMessage ?? this.anomalyMessage,
+      error: error ?? this.error,
+    );
+  }
+}
+
+class AuditLogNotifier extends StateNotifier<AuditLogState> {
+  AuditLogNotifier() : super(AuditLogState());
 
   Future<void> fetchLogs({int offset = 0, int limit = 50}) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    state = state.copyWith(isLoading: true, error: null);
 
     try {
       final res = await ApiClient.request('GET', '/ai/logs?limit=$limit&offset=$offset');
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
-        if (offset == 0) {
-          _logs = (data['logs'] as List).map((l) => AuditLog.fromMap(l)).toList();
-        } else {
-          _logs.addAll((data['logs'] as List).map((l) => AuditLog.fromMap(l)));
-        }
-        _hasAnomaly = data['hasAnomaly'] ?? false;
-        _anomalyMessage = data['anomalyMessage'];
+        final newLogs = (data['logs'] as List).map((l) => AuditLog.fromMap(l)).toList();
+        
+        state = state.copyWith(
+          logs: offset == 0 ? newLogs : [...state.logs, ...newLogs],
+          hasAnomaly: data['hasAnomaly'] ?? false,
+          anomalyMessage: data['anomalyMessage'],
+          isLoading: false,
+        );
       } else {
         final errorData = jsonDecode(res.body);
-        _error = errorData['error'] ?? 'Failed to fetch logs';
+        state = state.copyWith(
+          error: errorData['error'] ?? 'Failed to fetch logs',
+          isLoading: false,
+        );
       }
     } catch (e) {
-      _error = 'Network error fetching audit logs';
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      state = state.copyWith(
+        error: 'Network error fetching audit logs',
+        isLoading: false,
+      );
     }
   }
 
   Future<void> exportCsv() async {
-    // In a full app, this would trigger a download using url_launcher or dio download.
-    // For now we assume the UI provides a button linking directly to the backend stream endpoint.
+    // Legacy stub
   }
 }
+
+final auditLogProvider = StateNotifierProvider<AuditLogNotifier, AuditLogState>((ref) {
+  return AuditLogNotifier();
+});

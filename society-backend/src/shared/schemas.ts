@@ -23,6 +23,7 @@ export const RegisterSchema = z.object({
     password: z.string().min(6).max(50),
     flatNumber: sanitizedString.max(20),
     blockName: z.string().max(50).optional().default(""),
+    society_id: sanitizedString.max(50), // Mandated for multi-tenancy
   }).strict()
 });
 

@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../providers/smart_scan_provider.dart';
 import '../../providers/shared/funds_provider.dart';
 import '../../models/fund.dart';
 
-class OcrPreviewScreen extends StatefulWidget {
+class OcrPreviewScreen extends ConsumerStatefulWidget {
   const OcrPreviewScreen({super.key});
 
   @override
-  State<OcrPreviewScreen> createState() => _OcrPreviewScreenState();
+  ConsumerState<OcrPreviewScreen> createState() => _OcrPreviewScreenState();
 }
 
-class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
+class _OcrPreviewScreenState extends ConsumerState<OcrPreviewScreen> {
   final _formKey = GlobalKey<FormState>();
   
   late TextEditingController _vendorController;
@@ -23,8 +23,7 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
   @override
   void initState() {
     super.initState();
-    final provider = context.read<SmartScanProvider>();
-    final data = provider.extractedData ?? {};
+    final data = ref.read(smartScanProvider).extractedData ?? {};
 
     _vendorController = TextEditingController(text: data['vendor']?.toString() ?? '');
     _amountController = TextEditingController(text: data['amount']?.toString() ?? '');
@@ -45,8 +44,8 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final scanProvider = context.watch<SmartScanProvider>();
-    final isSaving = scanProvider.state == SmartScanState.saving;
+    final scanData = ref.watch(smartScanProvider);
+    final isSaving = scanData.state == SmartScanState.saving;
 
     return Scaffold(
       appBar: AppBar(
@@ -55,7 +54,7 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: scanProvider.state == SmartScanState.error
+      body: scanData.state == SmartScanState.error
           ? Center(
               child: Padding(
                 padding: const EdgeInsets.all(24.0),
@@ -64,7 +63,7 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
                   children: [
                     const Icon(Icons.error_outline, color: Colors.red, size: 48),
                     const SizedBox(height: 16),
-                    Text(scanProvider.errorMessage, textAlign: TextAlign.center),
+                    Text(scanData.errorMessage, textAlign: TextAlign.center),
                     const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: () => Navigator.pop(context),
@@ -87,7 +86,7 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
                     controller: _vendorController,
                     decoration: const InputDecoration(labelText: 'Vendor / Provider', border: OutlineInputBorder()),
                     validator: (v) => v!.isEmpty ? 'Required' : null,
-                    onChanged: (val) => scanProvider.updateField('vendor', val),
+                    onChanged: (val) => ref.read(smartScanProvider.notifier).updateField('vendor', val),
                   ),
                   const SizedBox(height: 16),
 
@@ -96,7 +95,7 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
                     decoration: const InputDecoration(labelText: 'Amount (₹)', border: OutlineInputBorder()),
                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                     validator: (v) => double.tryParse(v ?? '') == null ? 'Invalid amount' : null,
-                    onChanged: (val) => scanProvider.updateField('amount', double.tryParse(val)),
+                    onChanged: (val) => ref.read(smartScanProvider.notifier).updateField('amount', double.tryParse(val)),
                   ),
                   const SizedBox(height: 16),
 
@@ -104,14 +103,14 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
                     controller: _categoryController,
                     decoration: const InputDecoration(labelText: 'Expense Category', border: OutlineInputBorder()),
                     validator: (v) => v!.isEmpty ? 'Required' : null,
-                    onChanged: (val) => scanProvider.updateField('category', val),
+                    onChanged: (val) => ref.read(smartScanProvider.notifier).updateField('category', val),
                   ),
                   const SizedBox(height: 16),
 
                   TextFormField(
                     controller: _dateController,
                     decoration: const InputDecoration(labelText: 'Date (YYYY-MM-DD)', border: OutlineInputBorder()),
-                    onChanged: (val) => scanProvider.updateField('date', val),
+                    onChanged: (val) => ref.read(smartScanProvider.notifier).updateField('date', val),
                   ),
                   const SizedBox(height: 16),
 
@@ -119,7 +118,7 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
                     controller: _noteController,
                     decoration: const InputDecoration(labelText: 'Note (Optional)', border: OutlineInputBorder()),
                     maxLines: 2,
-                    onChanged: (val) => scanProvider.updateField('note', val),
+                    onChanged: (val) => ref.read(smartScanProvider.notifier).updateField('note', val),
                   ),
                   const SizedBox(height: 32),
 
@@ -127,7 +126,7 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
                     height: 50,
                     child: ElevatedButton(
                       style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
-                      onPressed: isSaving ? null : () => _saveTransaction(scanProvider),
+                      onPressed: isSaving ? null : () => _saveTransaction(scanData),
                       child: isSaving 
                         ? const CircularProgressIndicator(color: Colors.white)
                         : const Text('Confirm & Save'),
@@ -139,11 +138,11 @@ class _OcrPreviewScreenState extends State<OcrPreviewScreen> {
     );
   }
 
-  Future<void> _saveTransaction(SmartScanProvider scanProvider) async {
+  Future<void> _saveTransaction(SmartScanData scanData) async {
     if (_formKey.currentState!.validate()) {
-      final fundsNotifier = context.read<FundsNotifier>();
+      final fundsNotifier = ref.read(fundsProvider.notifier);
       
-      final success = await scanProvider.commitTransaction((data) async {
+      final success = await ref.read(smartScanProvider.notifier).commitTransaction((data) async {
         final tx = FundTransaction(
           id: '', // Backend generates
           title: data['vendor'] ?? 'Expense',
