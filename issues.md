@@ -62,6 +62,26 @@ Since the last audit, we have successfully resolved several critical architectur
 - **Solution**: Bridged real-time Firestore financial metrics into the AI context (Data Grounding).
 - **Status**: ✅ Resolved.
 
+### 9. Multi-Tenancy Isolation & Field Harmonization (V3.5)
+- **Issue**: Inconsistent field naming (`societyId` vs `society_id`) and insecure 'main_society' fallbacks risking cross-tenant data leakage.
+- **Solution**: Executed a system-wide migration to snake_case `society_id` and enforced strict tenant context checks in all transactional and AI services.
+- **Status**: ✅ Resolved.
+
+### 10. AI Service Modernization (TypeScript Migration)
+- **Issue**: AI logic was scattered in legacy JavaScript files without type safety, leading to runtime errors like missing `ragContext`.
+- **Solution**: Fully migrated AI services (`AIChatService`, `VectorStoreService`, etc.) to TypeScript and resolved all scope-related retrieval bugs.
+- **Status**: ✅ Resolved.
+
+### 11. Backend Middleware Modernization
+- **Issue**: `tenantMiddleware` was a legacy JavaScript file causing declaration/type errors in modernized TypeScript routes.
+- **Solution**: Migrated `tenantMiddleware` to TypeScript with full request-type augmentation.
+- **Status**: ✅ Resolved.
+
+### 12. Flutter Development Hygiene (Linting)
+- **Issue**: Stale imports (`foundation.dart`) and non-standard naming (`society_id` vs `societyId`) in `auth_service.dart` triggered IDE analysis warnings.
+- **Solution**: Cleaned up imports and synchronized naming conventions across the `AuthService` and `RegisterScreen`.
+- **Status**: ✅ Resolved.
+
 ---
 
 ## 🏗️ Remaining Infrastructure Debt (Updated)
@@ -86,6 +106,12 @@ While the Core UX is now stable and modular, the following technical goals remai
 
 ---
 
+### 5. Backend Migration to TypeScript (Auth & Middleware)
+- **Problem**: Core middlewares like `auth.js` and several legacy routes still live in JavaScript, creating type-safety gaps.
+- **Priority**: Medium.
+
+---
+
 ## ✅ Updated Priority Fixes Roadmap
 
 ### Frontend
@@ -97,6 +123,12 @@ While the Core UX is now stable and modular, the following technical goals remai
 ### Backend
 - [x] Stabilize Billing API (GET endpoints & Optimistic Locking).
 - [x] Bridge Firestore financial metrics to AI context.
+- [x] Migrate `tenantMiddleware` to TypeScript (V3.5).
+- [x] Resolve `ragContext` and scope-related AI bugs.
+- [ ] Migrate `auth.js` middleware to TypeScript.
 - [ ] Build the `/ai/usage/stats` endpoint to feed the new Admin header.
 - [ ] Transition Tesseract.js (WASM) to a dedicated server-side microservice for faster batch processing.
 - [ ] Implement **Automated Late Fee** scheduled worker.
+
+---
+*Last Updated: April 18, 2026*
