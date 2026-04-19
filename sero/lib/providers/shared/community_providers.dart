@@ -9,12 +9,17 @@ import 'package:sero/models/guest_pass.dart';
 import 'package:sero/models/pulse.dart';
 import 'package:sero/models/issue.dart';
 import 'package:sero/models/society_record.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 
 // --- Visitor & Guest Gate Providers ---
 final activeGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
-  // In a real app, filter by current resident's ID
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+  
   return FirebaseFirestore.instance
       .collection('guest_passes')
+      .where('society_id', isEqualTo: user.societyId) // Filter by society
+      .where('residentId', isEqualTo: user.id) // Also filter by resident for privacy
       .orderBy('createdAt', descending: true)
       .snapshots()
       .map((snapshot) => snapshot.docs
@@ -23,11 +28,15 @@ final activeGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
 });
 
 final allTodayGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+  
   final today = DateTime.now();
   final startOfDay = DateTime(today.year, today.month, today.day);
   
   return FirebaseFirestore.instance
       .collection('guest_passes')
+      .where('society_id', isEqualTo: user.societyId)
       .where('createdAt', isGreaterThanOrEqualTo: startOfDay)
       .snapshots()
       .map((snapshot) => snapshot.docs
@@ -37,8 +46,12 @@ final allTodayGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
 
 // --- Pulse Providers ---
 final directPulseProvider = StreamProvider<Pulse?>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value(null);
+
   return FirebaseFirestore.instance
       .collection('pulses')
+      .where('society_id', isEqualTo: user.societyId)
       .orderBy('createdAt', descending: true)
       .limit(1)
       .snapshots()
@@ -49,8 +62,12 @@ final directPulseProvider = StreamProvider<Pulse?>((ref) {
 
 // --- Facility & Booking Providers ---
 final facilitiesProvider = StreamProvider<List<Facility>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('facilities')
+      .where('society_id', isEqualTo: user.societyId)
       .snapshots()
       .map((snapshot) => snapshot.docs
           .map((doc) => Facility.fromMap(doc.data(), doc.id))
@@ -58,9 +75,13 @@ final facilitiesProvider = StreamProvider<List<Facility>>((ref) {
 });
 
 final userBookingsProvider = StreamProvider<List<Booking>>((ref) {
-  // In a real app, query by current userId
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('bookings')
+      .where('society_id', isEqualTo: user.societyId)
+      .where('userId', isEqualTo: user.id)
       .orderBy('startTime', descending: true)
       .snapshots()
       .map((snapshot) => snapshot.docs
@@ -70,8 +91,12 @@ final userBookingsProvider = StreamProvider<List<Booking>>((ref) {
 
 // --- Marketplace Provider ---
 final marketplaceProvider = StreamProvider<List<ClassifiedItem>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('marketplace')
+      .where('society_id', isEqualTo: user.societyId)
       .where('isSold', isEqualTo: false)
       .snapshots()
       .map((snapshot) {
@@ -86,8 +111,12 @@ final marketplaceProvider = StreamProvider<List<ClassifiedItem>>((ref) {
 
 // --- Discovery Provider ---
 final discoveryProvider = StreamProvider<List<InterestProfile>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('interests')
+      .where('society_id', isEqualTo: user.societyId)
       .snapshots()
       .map((snapshot) => snapshot.docs
           .map((doc) => InterestProfile.fromMap(doc.data(), doc.id))
@@ -96,8 +125,12 @@ final discoveryProvider = StreamProvider<List<InterestProfile>>((ref) {
 
 // --- Polls Provider ---
 final pollsProvider = StreamProvider<List<Poll>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('polls')
+      .where('society_id', isEqualTo: user.societyId)
       .where('isActive', isEqualTo: true)
       .snapshots()
       .map((snapshot) {
@@ -112,8 +145,12 @@ final pollsProvider = StreamProvider<List<Poll>>((ref) {
 
 // --- Events Provider ---
 final communityEventsProvider = StreamProvider<List<SocietyEvent>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('events')
+      .where('society_id', isEqualTo: user.societyId)
       .snapshots()
       .map((snapshot) {
     final events = snapshot.docs
@@ -127,8 +164,12 @@ final communityEventsProvider = StreamProvider<List<SocietyEvent>>((ref) {
 
 // --- Committee Provider ---
 final committeeProvider = StreamProvider<List<CommitteeMember>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('committee')
+      .where('society_id', isEqualTo: user.societyId)
       .snapshots()
       .map((snapshot) => snapshot.docs
           .map((doc) => CommitteeMember.fromMap(doc.data(), doc.id))
@@ -137,8 +178,12 @@ final committeeProvider = StreamProvider<List<CommitteeMember>>((ref) {
 
 // --- Society Operations Providers (Phase 15) ---
 final allIssuesStreamProvider = StreamProvider<List<Issue>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('issues')
+      .where('society_id', isEqualTo: user.societyId)
       .snapshots()
       .map((snapshot) {
         final list = snapshot.docs.map((doc) => Issue.fromMap(doc.data())).toList();
@@ -148,8 +193,12 @@ final allIssuesStreamProvider = StreamProvider<List<Issue>>((ref) {
 });
 
 final societyRecordsProvider = StreamProvider<List<SocietyRecord>>((ref) {
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+
   return FirebaseFirestore.instance
       .collection('records')
+      .where('society_id', isEqualTo: user.societyId)
       .snapshots()
       .map((snapshot) {
     final list = snapshot.docs.map((doc) => SocietyRecord.fromMap(doc.data(), doc.id)).toList();
@@ -160,9 +209,10 @@ final societyRecordsProvider = StreamProvider<List<SocietyRecord>>((ref) {
 
 // --- Actions for Admins ---
 class CommunityActions {
-  static Future<void> createPoll(String question, List<String> options) async {
+  static Future<void> createPoll(String question, List<String> options, String societyId) async {
     final votes = {for (var i = 0; i < options.length; i++) i.toString(): 0};
     await FirebaseFirestore.instance.collection('polls').add({
+      'society_id': societyId,
       'question': question,
       'options': options,
       'votes': votes,
@@ -193,8 +243,9 @@ class CommunityActions {
     });
   }
 
-  static Future<void> addEvent(String title, String description, DateTime date, String location) async {
+  static Future<void> addEvent(String title, String description, DateTime date, String location, String societyId) async {
     await FirebaseFirestore.instance.collection('events').add({
+      'society_id': societyId,
       'title': title,
       'description': description,
       'eventDate': date.toIso8601String(),
@@ -202,8 +253,9 @@ class CommunityActions {
     });
   }
 
-  static Future<void> addCommitteeMember(String name, String role, {String? avatarUrl, String? phone}) async {
+  static Future<void> addCommitteeMember(String name, String role, String societyId, {String? avatarUrl, String? phone}) async {
     await FirebaseFirestore.instance.collection('committee').add({
+      'society_id': societyId,
       'name': name,
       'role': role,
       'avatarUrl': avatarUrl,
@@ -218,8 +270,10 @@ class CommunityActions {
     required String residentId,
     required String residentName,
     required String flatNumber,
+    required String societyId,
   }) async {
     await FirebaseFirestore.instance.collection('guest_passes').add({
+      'society_id': societyId,
       'visitorName': visitorName,
       'category': category.toString().split('.').last,
       'status': 'approved',
@@ -238,8 +292,9 @@ class CommunityActions {
   }
 
   // --- Hub & Moderation Actions ---
-  static Future<void> postPulse(String content, {bool isHighPriority = false, String authorName = 'Secretary'}) async {
+  static Future<void> postPulse(String content, String societyId, {bool isHighPriority = false, String authorName = 'Secretary'}) async {
     await FirebaseFirestore.instance.collection('pulses').add({
+      'society_id': societyId,
       'content': content,
       'authorName': authorName,
       'authorRole': 'Committee',
@@ -266,9 +321,10 @@ class CommunityActions {
     });
   }
 
-  static Future<void> addSocietyRecord(SocietyRecord record) async {
+  static Future<void> addSocietyRecord(SocietyRecord record, String societyId) async {
     await FirebaseFirestore.instance.collection('records').add({
       ...record.toMap(),
+      'society_id': societyId,
       'postedBy': 'Secretary',
       'createdAt': FieldValue.serverTimestamp(),
     });

@@ -6,6 +6,8 @@ const crypto = require("crypto");
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, adminOnly, mainAdminOnly } = require("../middleware/auth");
 const { AuditLogService } = require("../src/services/AuditLogService");
+const { redis } = require("../src/shared/Redis");
+const { logger } = require("../src/shared/Logger");
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = "1h";

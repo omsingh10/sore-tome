@@ -14,7 +14,7 @@ router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
   try {
     const db = getDb();
     const snap = await db.collection("funds")
-      .where("societyId", "==", req.societyId)
+      .where("society_id", "==", req.societyId)
       .orderBy("createdAt", "desc")
       .limit(12)
       .get();
@@ -41,7 +41,7 @@ router.get("/transactions", authMiddleware, tenantMiddleware, async (req, res) =
     const db = getDb();
     const snap = await db
       .collection("transactions")
-      .where("societyId", "==", req.societyId)
+      .where("society_id", "==", req.societyId)
       .orderBy("createdAt", "desc")
       .limit(30)
       .get();
@@ -68,7 +68,7 @@ router.post("/transactions", authMiddleware, tenantMiddleware, canManageFunds, v
     const { title, amount, type, note, category, transactionId } = req.body;
     const db = getDb();
     const docRef = await db.collection("transactions").add({
-      societyId: req.societyId, // MANDATORY: Multi-tenancy partition
+      society_id: req.societyId, // MANDATORY: Multi-tenancy partition
       title,
       amount: Number(amount),
       type,
@@ -91,7 +91,7 @@ router.get("/summary", authMiddleware, tenantMiddleware, async (req, res) => {
     const db = getDb();
     const { redis } = require("../src/shared/Redis");
     const [transSnap, settingsSnap] = await Promise.all([
-      db.collection("transactions").where("societyId", "==", req.societyId).orderBy("createdAt", "desc").limit(100).get(),
+      db.collection("transactions").where("society_id", "==", req.societyId).orderBy("createdAt", "desc").limit(100).get(),
       db.collection("society_settings").doc(req.societyId).get()
     ]);
 
@@ -115,7 +115,7 @@ router.get("/summary", authMiddleware, tenantMiddleware, async (req, res) => {
 
     // AI V3.12: Live Census-based Outstanding Dues Calculation (Filtered by societyId)
     const usersSnap = await db.collection("users")
-      .where("societyId", "==", req.societyId)
+      .where("society_id", "==", req.societyId)
       .where("status", "==", "approved")
       .get();
 
@@ -124,7 +124,7 @@ router.get("/summary", authMiddleware, tenantMiddleware, async (req, res) => {
     const now = new Date();
     const firstDayTs = getAdmin().firestore.Timestamp.fromDate(new Date(now.getFullYear(), now.getMonth(), 1));
     const paidMatch = await db.collection("transactions")
-      .where("societyId", "==", req.societyId)
+      .where("society_id", "==", req.societyId)
       .where("createdAt", ">=", firstDayTs)
       .where("category", "==", "maintenance")
       .where("type", "==", "credit")
@@ -178,7 +178,7 @@ router.post("/settings", authMiddleware, tenantMiddleware, canManageFunds, async
       actorId: req.user.uid,
       actorName: req.user.name || "Admin",
       details: `Updated society financial settings`,
-      societyId: req.societyId,
+      society_id: req.societyId,
       metadata: updates
     });
 
@@ -195,7 +195,7 @@ router.get("/maintenance-status", authMiddleware, tenantMiddleware, async (req, 
     const admin = getAdmin();
 
     const usersSnap = await db.collection("users")
-      .where("societyId", "==", req.societyId)
+      .where("society_id", "==", req.societyId)
       .where("status", "==", "approved")
       .get();
 
@@ -219,7 +219,7 @@ router.get("/maintenance-status", authMiddleware, tenantMiddleware, async (req, 
 
     const oldestDate = monthsToCheck[monthsToCheck.length - 1].start;
     const transSnap = await db.collection("transactions")
-      .where("societyId", "==", req.societyId)
+      .where("society_id", "==", req.societyId)
       .where("createdAt", ">=", oldestDate)
       .where("category", "==", "maintenance")
       .where("type", "==", "credit")

@@ -108,7 +108,7 @@ router.delete("/:id", authMiddleware, tenantMiddleware, mainAdminOnly, async (re
     const docRef = db.collection("channels").doc(req.params.id);
     const doc = await docRef.get();
     
-    if (!doc.exists || doc.data().societyId !== req.societyId) {
+    if (!doc.exists || doc.data().society_id !== req.societyId) {
        return res.status(404).json({ error: "Channel not found" });
     }
 
@@ -161,7 +161,7 @@ router.patch("/:id", authMiddleware, tenantMiddleware, canManageContent, async (
     const docRef = db.collection("channels").doc(req.params.id);
     const doc = await docRef.get();
 
-    if (!doc.exists || doc.data().societyId !== req.societyId) {
+    if (!doc.exists || doc.data().society_id !== req.societyId) {
        return res.status(404).json({ error: "Channel not found" });
     }
     

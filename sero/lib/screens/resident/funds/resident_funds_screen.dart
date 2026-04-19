@@ -11,6 +11,7 @@ import 'package:sero/widgets/shared/funds/funds_sections.dart';
 import 'package:sero/widgets/shared/funds/funds_metrics.dart';
 import 'package:sero/widgets/shared/branding_header.dart';
 import 'package:sero/widgets/shared/hero_header.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 
 class ResidentFundsScreen extends ConsumerStatefulWidget {
   const ResidentFundsScreen({super.key});
@@ -140,7 +141,7 @@ class _ResidentFundsScreenState extends ConsumerState<ResidentFundsScreen> {
                       ),
                       const SizedBox(height: 8),
                       StreamBuilder<List<FundTransaction>>(
-                        stream: _service.getTransactionsStream(),
+                        stream: _service.getTransactionsStream(ref.watch(authProvider).value?.societyId ?? ''),
                         builder: (context, snapshot) {
                           return DisbursementsSection(
                             transactions: snapshot.data ?? [],

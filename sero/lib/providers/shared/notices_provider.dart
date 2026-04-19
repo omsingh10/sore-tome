@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/services/api_service.dart';
 import 'package:sero/models/notice.dart';
 import 'package:sero/services/firestore_service.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 
 final noticesStreamProvider = StreamProvider<List<Notice>>((ref) {
-  return FirestoreService().getNoticesStream();
+  final user = ref.watch(authProvider).value;
+  if (user == null) return Stream.value([]);
+  return FirestoreService().getNoticesStream(user.societyId);
 });
 
 final noticesProvider = StateNotifierProvider<NoticesNotifier, AsyncValue<List<Notice>>>((ref) {

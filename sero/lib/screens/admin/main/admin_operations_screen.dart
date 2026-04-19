@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sero/app/theme.dart';
 import 'package:sero/providers/shared/community_providers.dart';
 import 'package:sero/models/society_record.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 
 class AdminOperationsScreen extends ConsumerStatefulWidget {
   const AdminOperationsScreen({super.key});
@@ -29,6 +30,9 @@ class _AdminOperationsScreenState extends ConsumerState<AdminOperationsScreen> w
 
   @override
   Widget build(BuildContext context) {
+    final curUser = ref.watch(authProvider).value;
+    final societyId = curUser?.societyId ?? '';
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
@@ -57,15 +61,15 @@ class _AdminOperationsScreenState extends ConsumerState<AdminOperationsScreen> w
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildRepairsTab(),
+          _buildRepairsTab(societyId),
           _buildBookingsTab(),
-          _buildRecordsTab(),
+          _buildRecordsTab(societyId),
         ],
       ),
     );
   }
 
-  Widget _buildRepairsTab() {
+  Widget _buildRepairsTab(String societyId) {
     final issuesAsync = ref.watch(allIssuesStreamProvider);
     return issuesAsync.when(
       data: (issues) {
@@ -254,7 +258,7 @@ class _AdminOperationsScreenState extends ConsumerState<AdminOperationsScreen> w
     );
   }
 
-  Widget _buildRecordsTab() {
+  Widget _buildRecordsTab(String societyId) {
     final recordsAsync = ref.watch(societyRecordsProvider);
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -303,7 +307,7 @@ class _AdminOperationsScreenState extends ConsumerState<AdminOperationsScreen> w
         error: (e, _) => Center(child: Text("Error: $e")),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddRecordDialog,
+        onPressed: () => _showAddRecordDialog(societyId),
         backgroundColor: const Color(0xFF0F172A),
         icon: const Icon(Icons.add_rounded, color: Colors.white),
         label: Text("ADD DOCUMENT", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.w700)),
@@ -311,7 +315,7 @@ class _AdminOperationsScreenState extends ConsumerState<AdminOperationsScreen> w
     );
   }
 
-  void _showAddRecordDialog() {
+  void _showAddRecordDialog(String societyId) {
     String title = '';
     String category = 'Governance';
     
@@ -347,7 +351,7 @@ class _AdminOperationsScreenState extends ConsumerState<AdminOperationsScreen> w
                 fileUrl: '',
                 category: category,
                 createdAt: DateTime.now(),
-              ));
+              ), societyId);
               if (!context.mounted) return;
               Navigator.of(context).pop();
             },

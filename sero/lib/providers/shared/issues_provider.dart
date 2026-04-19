@@ -8,7 +8,7 @@ import 'package:sero/providers/shared/auth_provider.dart';
 final issuesStreamProvider = StreamProvider<List<Issue>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return const Stream.empty();
-  return FirestoreService().getIssuesStream(user.name); 
+  return FirestoreService().getIssuesStream(user.id, user.societyId); 
 });
 
 final issuesProvider = StateNotifierProvider<IssuesNotifier, AsyncValue<List<Issue>>>((ref) {

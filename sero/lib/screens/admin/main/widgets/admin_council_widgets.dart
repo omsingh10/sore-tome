@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sero/app/theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 import 'package:sero/providers/shared/community_providers.dart';
 
-class AdminCouncilTools extends StatelessWidget {
+class AdminCouncilTools extends ConsumerWidget {
   const AdminCouncilTools({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final curUser = ref.watch(authProvider).value;
+    final societyId = curUser?.societyId ?? '';
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
@@ -30,21 +34,21 @@ class AdminCouncilTools extends StatelessWidget {
                   icon: Icons.poll_rounded,
                   label: 'Poll',
                   color: kPrimaryGreen,
-                  onTap: () => _showCreatePoll(context),
+                   onTap: () => _showCreatePoll(context, societyId),
                 ),
                 const SizedBox(width: 12),
                 _ToolButton(
                   icon: Icons.event_available_rounded,
                   label: 'Event',
                   color: kPrimaryBlue,
-                  onTap: () => _showCreateEvent(context),
+                  onTap: () => _showCreateEvent(context, societyId),
                 ),
                 const SizedBox(width: 12),
                 _ToolButton(
                   icon: Icons.people_alt_rounded,
                   label: 'Member',
                   color: const Color(0xFF8B5CF6),
-                  onTap: () => _showAddMember(context),
+                  onTap: () => _showAddMember(context, societyId),
                 ),
               ],
             ),
@@ -54,7 +58,7 @@ class AdminCouncilTools extends StatelessWidget {
     );
   }
 
-  void _showCreatePoll(BuildContext context) {
+  void _showCreatePoll(BuildContext context, String societyId) {
     final questionController = TextEditingController();
     final optionControllers = [TextEditingController(), TextEditingController()];
 
@@ -98,7 +102,7 @@ class AdminCouncilTools extends StatelessWidget {
                 onPressed: () {
                   final options = optionControllers.map((c) => c.text).where((t) => t.isNotEmpty).toList();
                   if (questionController.text.isNotEmpty && options.length >= 2) {
-                    CommunityActions.createPoll(questionController.text, options);
+                    CommunityActions.createPoll(questionController.text, options, societyId);
                     Navigator.pop(context);
                   }
                 },
@@ -112,7 +116,7 @@ class AdminCouncilTools extends StatelessWidget {
     );
   }
 
-  void _showCreateEvent(BuildContext context) {
+  void _showCreateEvent(BuildContext context, String societyId) {
     final titleController = TextEditingController();
     final locController = TextEditingController();
     final descController = TextEditingController();
@@ -148,6 +152,7 @@ class AdminCouncilTools extends StatelessWidget {
                     descController.text,
                     DateTime.now().add(const Duration(days: 1)),
                     locController.text,
+                    societyId,
                   );
                   Navigator.pop(context);
                 }
@@ -161,7 +166,7 @@ class AdminCouncilTools extends StatelessWidget {
     );
   }
 
-  void _showAddMember(BuildContext context) {
+  void _showAddMember(BuildContext context, String societyId) {
     final nameController = TextEditingController();
     final roleController = TextEditingController();
 
@@ -189,7 +194,7 @@ class AdminCouncilTools extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 if (nameController.text.isNotEmpty) {
-                  CommunityActions.addCommitteeMember(nameController.text, roleController.text);
+                  CommunityActions.addCommitteeMember(nameController.text, roleController.text, societyId);
                   Navigator.pop(context);
                 }
               },

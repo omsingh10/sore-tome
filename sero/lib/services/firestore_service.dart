@@ -122,9 +122,10 @@ class FirestoreService {
   }
 
   // ---------- REAL-TIME STREAMS ----------
-  Stream<List<Notice>> getNoticesStream() {
+  Stream<List<Notice>> getNoticesStream(String societyId) {
     return FirebaseFirestore.instance
         .collection('notices')
+        .where('society_id', isEqualTo: societyId)
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs.map((doc) => Notice.fromMap(doc.data())).toList();
@@ -133,9 +134,10 @@ class FirestoreService {
         });
   }
 
-  Stream<List<Issue>> getIssuesStream(String userId) {
+  Stream<List<Issue>> getIssuesStream(String userId, String societyId) {
     return FirebaseFirestore.instance
         .collection('issues')
+        .where('society_id', isEqualTo: societyId)
         .where('postedBy', isEqualTo: userId)
         .snapshots()
         .map((snapshot) {
@@ -145,9 +147,10 @@ class FirestoreService {
         });
   }
 
-  Stream<List<Issue>> getAllIssuesStream() {
+  Stream<List<Issue>> getAllIssuesStream(String societyId) {
     return FirebaseFirestore.instance
         .collection('issues')
+        .where('society_id', isEqualTo: societyId)
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs.map((doc) => Issue.fromMap(doc.data())).toList();
@@ -156,18 +159,20 @@ class FirestoreService {
         });
   }
 
-  Stream<List<Facility>> getFacilitiesStream() {
+  Stream<List<Facility>> getFacilitiesStream(String societyId) {
     return FirebaseFirestore.instance
         .collection('facilities')
+        .where('society_id', isEqualTo: societyId)
         .snapshots()
         .map((snapshot) {
           return snapshot.docs.map((doc) => Facility.fromMap(doc.data(), doc.id)).toList();
         });
   }
 
-  Stream<List<SocietyRecord>> getRecordsStream() {
+  Stream<List<SocietyRecord>> getRecordsStream(String societyId) {
     return FirebaseFirestore.instance
         .collection('records')
+        .where('society_id', isEqualTo: societyId)
         .snapshots()
         .map((snapshot) {
           final list = snapshot.docs.map((doc) => SocietyRecord.fromMap(doc.data(), doc.id)).toList();
@@ -185,9 +190,10 @@ class FirestoreService {
     await FirebaseFirestore.instance.collection('records').add(record.toMap());
   }
 
-  Stream<List<FundTransaction>> getTransactionsStream() {
+  Stream<List<FundTransaction>> getTransactionsStream(String societyId) {
     return FirebaseFirestore.instance
         .collection('transactions')
+        .where('society_id', isEqualTo: societyId)
         .where('type', isEqualTo: 'debit') // Focus on disbursements
         .snapshots()
         .map((snapshot) {

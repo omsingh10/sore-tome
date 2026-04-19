@@ -8,6 +8,7 @@ class UserModel {
   final String status;
   final String residentType;
   final bool maintenanceExempt;
+  final String societyId;
 
   UserModel({
     required this.id,
@@ -17,6 +18,7 @@ class UserModel {
     required this.block,
     required this.role,
     required this.status,
+    required this.societyId,
     this.residentType = 'owner',
     this.maintenanceExempt = false,
   });
@@ -30,6 +32,7 @@ class UserModel {
       block: map['blockName'] ?? map['block'] ?? '',
       role: map['role'] ?? 'resident',
       status: map['status'] ?? 'pending',
+      societyId: map['society_id'] ?? '',
       residentType: map['residentType'] ?? 'owner',
       maintenanceExempt: map['maintenanceExempt'] ?? false,
     );
@@ -44,6 +47,7 @@ class UserModel {
       'blockName': block,
       'role': role,
       'status': status,
+      'society_id': societyId,
       'residentType': residentType,
       'maintenanceExempt': maintenanceExempt,
     };

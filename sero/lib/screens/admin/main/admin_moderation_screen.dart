@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:sero/app/theme.dart';
 import 'package:sero/providers/shared/community_providers.dart';
 import 'package:sero/models/classified_item.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 
 class AdminModerationScreen extends ConsumerStatefulWidget {
   const AdminModerationScreen({super.key});
@@ -112,7 +113,9 @@ class _AdminModerationScreenState extends ConsumerState<AdminModerationScreen> w
             child: ElevatedButton(
               onPressed: () async {
                 if (_pulseController.text.isEmpty) return;
-                await CommunityActions.postPulse(_pulseController.text, isHighPriority: _isHighPriority);
+                final user = ref.read(authProvider).value;
+                final societyId = user?.societyId ?? '';
+                await CommunityActions.postPulse(_pulseController.text, societyId, isHighPriority: _isHighPriority);
                 if (!mounted) return;
                 
                 _pulseController.clear();
