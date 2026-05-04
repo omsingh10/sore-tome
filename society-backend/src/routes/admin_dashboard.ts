@@ -4,6 +4,7 @@ import { logger } from "../shared/Logger";
 
 // @ts-ignore
 import { authMiddleware, adminOnly } from "../../middleware/auth";
+import { tenantMiddleware } from "../../middleware/tenantMiddleware";
 
 const router = Router();
 
@@ -11,10 +12,10 @@ const router = Router();
  * GET /admin/dashboard-stats
  * High-performance centralized dashboard stats with integrated caching.
  */
-router.get("/dashboard-stats", authMiddleware, adminOnly, async (req: Request, res: Response) => {
+router.get("/dashboard-stats", authMiddleware, adminOnly, tenantMiddleware, async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.uid || "anonymous";
-    const societyId = (req as any).user?.society_id || "default_society";
+    const societyId = (req as any).societyId;
 
     const dashboardService = DashboardService.getInstance();
     const stats = await dashboardService.getDashboardStats(societyId);

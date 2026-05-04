@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, mainAdminOnly } = require("../middleware/auth");
+const { tenantMiddleware } = require("../middleware/tenantMiddleware");
 const { AuditLogService } = require("../src/services/AuditLogService");
 
 // POST /users/register — called after Firebase phone OTP success
@@ -54,10 +55,10 @@ router.get("/me", authMiddleware, async (req, res) => {
 });
 
 // GET /users — admin only: list all users IN THEIR SOCIETY
-router.get("/", authMiddleware, mainAdminOnly, async (req, res) => {
+router.get("/", authMiddleware, tenantMiddleware, mainAdminOnly, async (req, res) => {
   try {
     const db = getDb();
-    const societyId = req.user.society_id;
+    const societyId = req.societyId;
     
     const snap = await db.collection("users")
       .where("society_id", "==", societyId)
@@ -72,10 +73,19 @@ router.get("/", authMiddleware, mainAdminOnly, async (req, res) => {
 });
 
 // PATCH /users/:uid — main_admin can edit any user's details
-router.patch("/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
+router.patch("/:uid", authMiddleware, tenantMiddleware, mainAdminOnly, async (req, res) => {
   try {
     const { name, flatNumber, blockName, role, status, residentType, maintenanceExempt } = req.body;
     const db = getDb();
+    
+    // 🛡️ SEC FIX: Prevent IDOR - Verify the target user belongs to the same society
+    const userRef = db.collection("users").doc(req.params.uid);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists || userDoc.data().society_id !== req.societyId) {
+      return res.status(404).json({ error: "User not found in your society" });
+    }
+
     const admin = getAdmin();
     const updates = { updatedAt: admin.firestore.FieldValue.serverTimestamp() };
 
@@ -102,6 +112,39 @@ router.patch("/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
     );
 
     res.json({ message: "User updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Phase 2: Profile Photo Upload ────────────────
+const multer = require("multer");
+const { getStorage } = require("../config/firebase");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+
+// POST /users/me/photo
+router.post("/me/photo", authMiddleware, upload.single("photo"), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+    const db = getDb();
+    const bucket = getStorage().bucket();
+    const fileName = `profiles/${req.user.uid}_${Date.now()}.jpg`;
+    const file = bucket.file(fileName);
+
+    await file.save(req.file.buffer, {
+      metadata: { contentType: req.file.mimetype },
+      public: true,
+    });
+
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+
+    await db.collection("users").doc(req.user.uid).update({
+      photoUrl: publicUrl,
+      updatedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+    });
+
+    res.json({ photoUrl: publicUrl, message: "Profile photo updated" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

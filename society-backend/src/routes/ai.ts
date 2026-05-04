@@ -134,6 +134,60 @@ router.post("/upload-document", authMiddleware, tenantMiddleware, uploadRateLimi
   }
 });
 
+// AI V2.4: Direct Multipart Upload
+const multer = require("multer");
+const { getStorage } = require("../../config/firebase");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+router.post("/upload-document-direct", authMiddleware, tenantMiddleware, uploadRateLimiter, upload.single("file"), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    
+    const { documentType = "general" } = req.body;
+    const societyId = (req as any).societyId;
+    const userId = (req as any).user?.uid;
+    const fileName = `${Date.now()}_${req.file.originalname}`;
+
+    // 1. Upload to Firebase Storage
+    const bucket = getStorage().bucket();
+    const file = bucket.file(`documents/${societyId}/${fileName}`);
+    
+    await file.save(req.file.buffer, {
+      metadata: { 
+        contentType: req.file.mimetype,
+        metadata: {
+          uploadedBy: userId,
+          society_id: societyId,
+          documentType
+        }
+      },
+      public: true,
+    });
+
+    const fileUrl = `https://storage.googleapis.com/${bucket.name}/${file.name}`;
+
+    // 2. Queue for AI Ingestion
+    const queueService = AIQueueService.getInstance();
+    await queueService.addJob("DOC_INGESTION", { 
+      filePath: fileUrl, 
+      fileName: req.file.originalname,
+      fileType: req.file.mimetype,
+      documentType,
+      society_id: societyId,
+      userId: userId
+    });
+
+    return res.status(202).json({ 
+      message: "File uploaded and ingestion started", 
+      fileUrl,
+      status: "Processing" 
+    });
+  } catch (error: any) {
+    logger.error({ error: error.message }, "/ai/upload-document-direct failed");
+    return res.status(500).json({ error: "Direct upload failed" });
+  }
+});
+
 /**
  * DELETE /ai/document
  */

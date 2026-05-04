@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import '../config/env.dart';
 
 // Use centralized environment config
@@ -54,11 +56,38 @@ class AuthService {
       await _storage.write(key: 'token', value: data['token']);
       await _storage.write(key: 'refreshToken', value: data['refreshToken']);
       await _storage.write(key: 'user', value: jsonEncode(data['user']));
+      
+      // AI V2.4: Sync FCM Token
+      try {
+        final fcmToken = await FirebaseMessaging.instance.getToken();
+        if (fcmToken != null) {
+          await updateFcmToken(fcmToken);
+        }
+      } catch (e) {
+        debugPrint('FCM Token sync failed: $e');
+      }
+      
       return data;
     } else if (response.statusCode == 403) {
       throw {'error': data['error'], 'status': data['status']};
     } else {
       throw data['error'] ?? 'Login failed';
+    }
+  }
+
+  // AI V2.4: Update FCM Token on Backend
+  static Future<void> updateFcmToken(String token) async {
+    try {
+      final response = await http.patch(
+        Uri.parse('$kBaseUrl/users/me'),
+        headers: await authHeaders(),
+        body: jsonEncode({'fcmToken': token}),
+      );
+      if (response.statusCode != 200) {
+        debugPrint('Failed to update FCM token on server: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Error updating FCM token: $e');
     }
   }
 
@@ -117,6 +146,3 @@ class AuthService {
     throw data['error'] ?? 'Failed to load notifications';
   }
 }
-
-
-

@@ -219,6 +219,15 @@ router.post("/:id/messages", authMiddleware, tenantMiddleware, checkChannelAcces
       readBy: [],
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });
+
+    // AI V2.4: Notify the channel (simplified as topic notification)
+    // Note: In a production app, you might want to skip notifications for the sender
+    const NotificationService = require("../services/notificationService");
+    await NotificationService.sendToSociety(req.societyId, {
+      title: `${senderName || "New Message"} in ${channelData.name}`,
+      body: text ? (text.length > 100 ? text.substring(0, 97) + "..." : text) : "Sent a media file",
+      data: { type: "chat", channelId: req.params.id }
+    });
     
     res.status(201).json({ id: msgRef.id, clientId, message: "Message sent" });
   } catch (err) {

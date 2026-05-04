@@ -169,6 +169,14 @@ router.patch("/:id/status", authMiddleware, tenantMiddleware, canManageContent, 
        metadata: { issueId: req.params.id }
     });
 
+    // AI V2.4: Notify the issue owner
+    const NotificationService = require("../services/notificationService");
+    await NotificationService.sendToUser(doc.data().postedBy, {
+      title: "Issue Update",
+      body: `Your issue "${doc.data().title}" is now ${status}.`,
+      data: { type: "issue", id: req.params.id }
+    });
+
     res.json({ message: "Issue status updated successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });

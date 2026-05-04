@@ -4,6 +4,8 @@ import 'package:sero/services/api_service.dart';
 import 'package:sero/models/issue.dart';
 import 'package:sero/services/firestore_service.dart';
 import 'package:sero/providers/shared/auth_provider.dart';
+import 'package:sero/services/local_database_service.dart';
+import 'package:flutter/foundation.dart';
 
 final issuesStreamProvider = StreamProvider<List<Issue>>((ref) {
   final user = ref.watch(authProvider).value;
@@ -12,27 +14,49 @@ final issuesStreamProvider = StreamProvider<List<Issue>>((ref) {
 });
 
 final issuesProvider = StateNotifierProvider<IssuesNotifier, AsyncValue<List<Issue>>>((ref) {
-  return IssuesNotifier();
+  final user = ref.watch(authProvider).value;
+  return IssuesNotifier(user?.societyId);
 });
 
 class IssuesNotifier extends StateNotifier<AsyncValue<List<Issue>>> {
-  IssuesNotifier() : super(const AsyncValue.loading()) {
+  final String? societyId;
+  final _localDb = LocalDatabaseService();
+
+  IssuesNotifier(this.societyId) : super(const AsyncValue.loading()) {
     fetchIssues();
   }
 
   Future<void> fetchIssues() async {
-    state = const AsyncValue.loading();
+    // 1. Initial Load from Cache for "WOW" speed (Optimistic UI)
+    if (societyId != null) {
+      final cached = await _localDb.getItems('issues', societyId: societyId);
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached.map((x) => Issue.fromMap(x)).toList());
+      }
+    }
+
     try {
       final res = await ApiService.get('/issues');
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         final list = (data['issues'] as List).map((x) => Issue.fromMap(x)).toList();
+        
         state = AsyncValue.data(list);
+
+        // 2. Save to Cache
+        if (societyId != null) {
+          await _localDb.saveItems('issues', list.map((x) => x.toMap()).toList());
+        }
       } else {
+        if (state.hasValue) return;
         throw jsonDecode(res.body)['error'] ?? 'Failed to fetch issues';
       }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (state.hasValue) {
+        debugPrint('Offline: Using cached issues');
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 

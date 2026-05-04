@@ -379,6 +379,14 @@ router.post("/approve/:uid", authMiddleware, mainAdminOnly, async (req, res) => 
             `Approved ${userData.name} (Flat ${userData.flatNumber})`
         );
 
+        // AI V2.4: Send push notification to the approved user
+        const NotificationService = require("../services/notificationService");
+        await NotificationService.sendToUser(req.params.uid, {
+          title: "Registration Approved!",
+          body: `Welcome ${userData.name}! Your account for ${userData.society_id} is now active.`,
+          data: { type: "approval" }
+        });
+
         res.json({ message: `${userData.name} has been approved and notified.` });
     } catch (err) {
         res.status(500).json({ error: err.message });

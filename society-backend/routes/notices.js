@@ -59,6 +59,14 @@ router.post("/", authMiddleware, tenantMiddleware, canManageContent, validate(Cr
       `Posted notice: "${title}"`
     );
 
+    // AI V2.4: Send push notification to all residents in the society
+    const NotificationService = require("../services/notificationService");
+    await NotificationService.sendToSociety(societyId, {
+      title: `New Notice: ${title}`,
+      body: body.length > 100 ? body.substring(0, 97) + "..." : body,
+      data: { type: "notice", id: docRef.id }
+    });
+
     res.status(201).json({ id: docRef.id, message: "Notice posted" });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -69,7 +77,14 @@ router.post("/", authMiddleware, tenantMiddleware, canManageContent, validate(Cr
 router.delete("/:id", authMiddleware, tenantMiddleware, canManageContent, async (req, res) => {
   try {
     const db = getDb();
-    await db.collection("notices").doc(req.params.id).delete();
+    const docRef = db.collection("notices").doc(req.params.id);
+    const doc = await docRef.get();
+
+    if (!doc.exists || doc.data().society_id !== req.societyId) {
+      return res.status(404).json({ error: "Notice not found" });
+    }
+
+    await docRef.delete();
     
     // Log the action
     await AuditLogService.getInstance().logAdminAction(

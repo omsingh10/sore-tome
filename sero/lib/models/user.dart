@@ -9,6 +9,7 @@ class UserModel {
   final String residentType;
   final bool maintenanceExempt;
   final String societyId;
+  final String? photoUrl;
 
   UserModel({
     required this.id,
@@ -21,6 +22,7 @@ class UserModel {
     required this.societyId,
     this.residentType = 'owner',
     this.maintenanceExempt = false,
+    this.photoUrl,
   });
 
   factory UserModel.fromMap(Map<String, dynamic> map) {
@@ -35,6 +37,7 @@ class UserModel {
       societyId: map['society_id'] ?? '',
       residentType: map['residentType'] ?? 'owner',
       maintenanceExempt: map['maintenanceExempt'] ?? false,
+      photoUrl: map['photoUrl'],
     );
   }
 
@@ -50,6 +53,7 @@ class UserModel {
       'society_id': societyId,
       'residentType': residentType,
       'maintenanceExempt': maintenanceExempt,
+      'photoUrl': photoUrl,
     };
   }
 }

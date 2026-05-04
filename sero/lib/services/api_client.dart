@@ -78,9 +78,40 @@ class ApiClient {
         return await http.put(url, headers: headers, body: jsonEncode(body));
       case 'DELETE':
         return await http.delete(url, headers: headers);
+      case 'PATCH':
+        return await http.patch(url, headers: headers, body: jsonEncode(body));
       default:
         throw Exception('Method $method not supported');
     }
+  }
+
+  /// Multipart File Upload
+  static Future<http.StreamedResponse> upload(
+    String endpoint,
+    String fieldName,
+    Uint8List fileBytes,
+    String fileName, {
+    Map<String, String>? fields,
+  }) async {
+    final url = Uri.parse('$baseUrl$endpoint');
+    final request = http.MultipartRequest('POST', url);
+    
+    final token = await AuthService.getToken();
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    if (fields != null) {
+      request.fields.addAll(fields);
+    }
+
+    request.files.add(http.MultipartFile.fromBytes(
+      fieldName,
+      fileBytes,
+      filename: fileName,
+    ));
+
+    return await request.send();
   }
 
   static Future<bool> _handleRefresh() async {

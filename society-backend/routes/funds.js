@@ -267,4 +267,77 @@ router.get("/maintenance-status", authMiddleware, tenantMiddleware, async (req, 
   }
 });
 
+// ─── Phase 2: Payment Integration (Gateway Agnostic) ────────────────
+const { PaymentService } = require("../src/services/payment/PaymentService");
+
+// POST /payments/create-order
+router.post("/payments/create-order", authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const { amount, currency = "INR", receipt } = req.body;
+    
+    if (!amount || amount <= 0) {
+      return res.status(400).json({ error: "Invalid amount" });
+    }
+
+    const provider = PaymentService.getInstance().getProvider();
+    const order = await provider.createOrder(amount, currency, receipt);
+    
+    res.json(order);
+  } catch (err) {
+    logger.error({ error: err.message, user: req.user.uid }, "Order Creation Failed");
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /payments/verify
+router.post("/payments/verify", authMiddleware, tenantMiddleware, async (req, res) => {
+  try {
+    const payload = { ...req.body, ip: req.ip };
+    const provider = PaymentService.getInstance().getProvider();
+    
+    const verification = await provider.verifyPayment(payload);
+    
+    if (!verification.success) {
+      return res.status(400).json({ 
+        error: verification.message,
+        details: verification.error 
+      });
+    }
+
+    // On success: Create transaction record
+    const { amount, title, category } = req.body;
+    const db = getDb();
+    
+    const docData = {
+      society_id: req.societyId,
+      title: title || "Maintenance Payment",
+      amount: Number(amount),
+      type: "credit",
+      category: category || "maintenance",
+      note: `Gateway: ${provider.name} | ID: ${verification.transactionId}`,
+      transactionId: verification.transactionId,
+      addedBy: req.user.uid,
+      createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+    };
+
+    await db.collection("transactions").add(docData);
+
+    // AI V2.4: Log admin action if it's a significant payment
+    await AuditLogService.getInstance().logAdminAction(
+      req.user,
+      "Payment Verified",
+      `Payment of ${amount} verified via ${provider.name}`
+    );
+
+    res.json({ 
+      success: true, 
+      message: "Payment verified and recorded",
+      transactionId: verification.transactionId 
+    });
+  } catch (err) {
+    logger.error({ error: err.message }, "Payment Verification Logic Failed");
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

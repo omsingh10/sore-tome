@@ -20,6 +20,7 @@ Sentry.init({
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+const cors = require("cors");
 const { initFirebase } = require("./config/firebase");
 const standardLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, 
@@ -55,6 +56,7 @@ const app = express();
 
 const { contextMiddleware } = require("./middleware/ContextMiddleware");
 const { abuseProtection } = require("./middleware/abuseProtection");
+const { sanitizeInput } = require("./middleware/sanitize");
 
 // ─── Trust Proxy ─────────────────────────────────────────────────────────────
 app.set("trust proxy", 1); // Enable IP sensing behind load balancers/proxies
@@ -63,13 +65,29 @@ app.set("trust proxy", 1); // Enable IP sensing behind load balancers/proxies
 app.use(contextMiddleware); // Enterprise tracing & log context
 app.use(helmet());
 app.use(abuseProtection);
+app.use(sanitizeInput);
 
 // 🛡️ Phase 3: Global Protection
 app.use(express.json({ limit: "10kb" })); // Prevents payload-based DoS
 app.use("/auth/login", authLimiter);
 app.use("/auth/register", authLimiter);
 
-// ... (CORS logic remains same)
+// ─── CORS Configuration ──────────────────────────────────────────────────────
+const allowedOrigins = (process.env.CORS_ORIGINS || "http://localhost:3000,http://localhost:3001").split(",");
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1 || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "x-health-check-secret"]
+}));
 
 // ─── API Versioning & Routing ─────────────────────────────────────────────────
 const v1Router = express.Router();
@@ -134,29 +152,13 @@ app.use((req, res) => {
 
 const crypto = require("crypto");
 
+const { errorHandler } = require("./middleware/errorHandler");
+
 // ─── Global error handler ─────────────────────────────────────────────────────
 // Sentry error handler must be before any other error middleware
 Sentry.setupExpressErrorHandler(app);
 
-app.use((err, req, res, next) => {
-  const errorId = crypto.randomUUID();
-  
-  // Log full context for debugging
-  logger.fatal({
-    errorId,
-    path: req.path,
-    method: req.method,
-    stack: err.stack,
-    userId: req.user?.uid,
-    ip: req.ip
-  }, "🔥 Unhandled Critical System Error");
-
-  res.status(500).json({ 
-    error: "Internal server error",
-    errorId: errorId, // Trace within backend logs
-    requestId: req.requestId // Trace across system boundaries
-  });
-});
+app.use(errorHandler);
 
 
 

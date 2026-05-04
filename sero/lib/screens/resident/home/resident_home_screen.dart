@@ -12,6 +12,8 @@ import 'package:sero/providers/shared/funds_provider.dart';
 import 'package:sero/providers/shared/community_providers.dart';
 import 'package:sero/models/guest_pass.dart';
 import '../../shared/profile/profile_screen.dart';
+import 'package:sero/widgets/shared/shimmer_skeleton.dart';
+
 
 class ResidentHomeScreen extends ConsumerStatefulWidget {
   const ResidentHomeScreen({super.key});
@@ -96,7 +98,7 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
                             }
                             return card;
                           },
-                          loading: () => const _StatCardPlaceholder(),
+                          loading: () => const ShimmerSkeleton(width: double.infinity, height: 140, borderRadius: 24),
                           error: (_, __) => const _StatCardPlaceholder(),
                         ),
                       ),
@@ -122,17 +124,19 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
                             }
                             return card;
                           },
-                          loading: () => const _StatCardPlaceholder(),
+                          loading: () => const ShimmerSkeleton(width: double.infinity, height: 140, borderRadius: 24),
                           error: (_, __) => const _StatCardPlaceholder(),
                         ),
                       ),
                     ],
                   ),
+
                   
                   const SizedBox(height: 24),
                   
                   _sectionLabel('Latest notices'),
                   const SizedBox(height: 6),
+
                   noticesAsync.when(
                     data: (notices) => Column(
                       children: notices.take(3).map((n) => Padding(
@@ -140,7 +144,7 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
                         child: NoticeCard(notice: n),
                       )).toList(),
                     ),
-                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    loading: () => const ListSkeleton(itemCount: 3),
                     error: (e, _) => Center(child: Text('Error: $e')),
                   ),
 
@@ -153,7 +157,7 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
                         child: IssueCard(issue: i),
                       )).toList(),
                     ),
-                    loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                    loading: () => const ListSkeleton(itemCount: 3),
                     error: (e, _) => Center(child: Text('Error: $e')),
                   ),
                 ],

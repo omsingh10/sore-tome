@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/services/api_service.dart';
 import 'package:sero/models/fund.dart';
 import 'package:sero/providers/shared/auth_provider.dart';
+import 'package:sero/services/local_database_service.dart';
 
 final fundsProvider = StateNotifierProvider<FundsNotifier, AsyncValue<List<FundTransaction>>>((ref) {
   return FundsNotifier(ref);
@@ -62,12 +63,22 @@ final residentBalanceProvider = FutureProvider<double>((ref) async {
 
 class FundsNotifier extends StateNotifier<AsyncValue<List<FundTransaction>>> {
   final Ref ref;
+  final _localDb = LocalDatabaseService();
+
   FundsNotifier(this.ref) : super(const AsyncValue.loading()) {
     fetchTransactions();
   }
 
   Future<void> fetchTransactions() async {
-    state = const AsyncValue.loading();
+    // 1. Load from Cache
+    final user = ref.read(authProvider).value;
+    if (user != null) {
+      final cached = await _localDb.getItems('transactions', societyId: user.societyId);
+      if (cached.isNotEmpty) {
+        state = AsyncValue.data(cached.map((x) => FundTransaction.fromMap(x)).toList());
+      }
+    }
+
     try {
       final res = await ApiService.get('/funds/transactions');
       if (res.statusCode == 200) {
@@ -75,12 +86,23 @@ class FundsNotifier extends StateNotifier<AsyncValue<List<FundTransaction>>> {
         final list = (data['transactions'] as List).map((x) {
            return FundTransaction.fromMap(x);
         }).toList();
+        
         state = AsyncValue.data(list);
+
+        // 2. Save to Cache
+        if (user != null) {
+          await _localDb.saveItems('transactions', list.map((x) => x.toMap()).toList());
+        }
       } else {
+        if (state.hasValue) return;
         throw jsonDecode(res.body)['error'] ?? 'Failed to fetch funds';
       }
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (state.hasValue) {
+        // Silent fail if we have cache
+      } else {
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 
