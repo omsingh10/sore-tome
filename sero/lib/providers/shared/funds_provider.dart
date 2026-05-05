@@ -5,11 +5,11 @@ import 'package:sero/models/fund.dart';
 import 'package:sero/providers/shared/auth_provider.dart';
 import 'package:sero/services/local_database_service.dart';
 
-final fundsProvider = StateNotifierProvider<FundsNotifier, AsyncValue<List<FundTransaction>>>((ref) {
+final fundsProvider = StateNotifierProvider.autoDispose<FundsNotifier, AsyncValue<List<FundTransaction>>>((ref) {
   return FundsNotifier(ref);
 });
 
-final fundSummaryProvider = FutureProvider<FundSummary>((ref) async {
+final fundSummaryProvider = FutureProvider.autoDispose<FundSummary>((ref) async {
   try {
     final res = await ApiService.get('/funds/summary');
     if (res.statusCode == 200) {
@@ -31,7 +31,7 @@ final fundSummaryProvider = FutureProvider<FundSummary>((ref) async {
   return FundSummary(totalCollected: 0, totalSpent: 0);
 });
 
-final overdueResidentsProvider = FutureProvider<List<OverdueResident>>((ref) async {
+final overdueResidentsProvider = FutureProvider.autoDispose<List<OverdueResident>>((ref) async {
   final res = await ApiService.get('/funds/maintenance-status');
   if (res.statusCode == 200) {
     final data = jsonDecode(res.body);
@@ -40,7 +40,7 @@ final overdueResidentsProvider = FutureProvider<List<OverdueResident>>((ref) asy
   return [];
 });
 
-final residentBalanceProvider = FutureProvider<double>((ref) async {
+final residentBalanceProvider = FutureProvider.autoDispose<double>((ref) async {
   final user = ref.watch(authProvider).value;
   if (user == null) return 0.0;
   

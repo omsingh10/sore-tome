@@ -52,6 +52,12 @@ const aiLimiter = rateLimit({
 // ─── Init Firebase ─────────────────────────────────────────────────────────────
 initFirebase();
 
+// ─── Init Cron Jobs ────────────────────────────────────────────────────────────
+const { VisitorCronJob } = require("./src/services/cron/VisitorCronJob");
+const { FinanceReportCronJob } = require("./src/services/cron/FinanceReportCronJob");
+VisitorCronJob.init();
+FinanceReportCronJob.init();
+
 const app = express();
 
 const { contextMiddleware } = require("./middleware/ContextMiddleware");
@@ -68,7 +74,14 @@ app.use(abuseProtection);
 app.use(sanitizeInput);
 
 // 🛡️ Phase 3: Global Protection
-app.use(express.json({ limit: "10kb" })); // Prevents payload-based DoS
+app.use(express.json({ 
+  limit: "10kb",
+  verify: (req, res, buf) => {
+    if (req.originalUrl.includes('/webhook')) {
+      req.rawBody = buf.toString();
+    }
+  }
+})); // Prevents payload-based DoS
 app.use("/auth/login", authLimiter);
 app.use("/auth/register", authLimiter);
 
@@ -99,6 +112,10 @@ v1Router.use("/issues", standardLimiter, require("./routes/issues"));
 v1Router.use("/funds", standardLimiter, require("./routes/funds"));
 v1Router.use("/rules", standardLimiter, require("./routes/rules"));
 v1Router.use("/events", standardLimiter, require("./routes/events"));
+v1Router.use("/visitors", standardLimiter, require("./routes/visitors"));
+v1Router.use("/staff", standardLimiter, require("./routes/staff"));
+v1Router.use("/facilities", standardLimiter, require("./routes/facilities"));
+v1Router.use("/polls", standardLimiter, require("./routes/polls"));
 v1Router.use("/ai", aiLimiter, require("./src/routes/ai").default);
 v1Router.use("/admin", standardLimiter, require("./src/routes/admin_dashboard").default);
 v1Router.use("/admin", standardLimiter, require("./src/routes/admin_access").default);

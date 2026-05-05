@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:convert';
 import 'package:sero/services/api_service.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 import 'presence_provider.dart';
 
 enum MessageStatus { sending, sent, delivered, error }
@@ -188,9 +189,21 @@ class ChatMessage {
   }
 }
 
-final channelsListProvider = StreamProvider<List<Channel>>((ref) {
+// ✅ BUG-18 FIX: Filter channels by society_id using the logged-in user's societyId.
+// Previously this fetched ALL channels across ALL societies, relying solely on Firestore
+// Security Rules as the only defense. Defense-in-depth requires the query to be scoped.
+final channelsListProvider = StreamProvider.autoDispose<List<Channel>>((ref) {
+  final user = ref.watch(authProvider).value;
+  final societyId = user?.societyId;
+
+  // If user is not logged in or society not resolved yet, return empty stream
+  if (societyId == null || societyId.isEmpty) {
+    return const Stream.empty();
+  }
+
   return FirebaseFirestore.instance
       .collection('channels')
+      .where('society_id', isEqualTo: societyId)
       .snapshots()
       .map((snap) => snap.docs.map((doc) => Channel.fromMap(doc.data(), doc.id)).toList());
 });
@@ -256,7 +269,7 @@ final mergedMessagesProvider = Provider.family<AsyncValue<List<ChatMessage>>, St
   );
 });
 
-final briefingProvider = FutureProvider<Map<String, dynamic>>((ref) async {
+final briefingProvider = FutureProvider.autoDispose<Map<String, dynamic>>((ref) async {
   try {
     final response = await ApiService.get('/channels/admin/briefing');
     if (response.statusCode == 200) {

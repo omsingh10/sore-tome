@@ -92,7 +92,7 @@ router.get("/:id", authMiddleware, tenantMiddleware, async (req, res) => {
 
     const data = doc.data();
     const isOwner = data.postedBy === req.user.uid;
-    const isAdmin = ["main_admin", "secretary", "admin"].includes(req.user.role);
+    const isAdmin = ["main_admin", "secretary"].includes(req.user.role);
 
     if (!isOwner && !isAdmin) {
       logger.warn({ ip, userId: req.user.uid, issueId: req.params.id, societyId: req.societyId }, "SEC-WARN: Unauthorized society-internal IDOR attempt");

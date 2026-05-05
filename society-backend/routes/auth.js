@@ -183,7 +183,7 @@ router.post("/register", validate(RegisterSchema), async (req, res) => {
             type: "registration_request",
             title: "New registration request",
             body: `${name} from Flat ${flatNumber}${blockName ? ", Block " + blockName : ""} wants to join.`,
-            targetRole: "admin",
+            targetRole: "main_admin",
             userId: userRef.id,
             read: false,
             createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
@@ -413,6 +413,13 @@ router.post("/reject/:uid", authMiddleware, mainAdminOnly, async (req, res) => {
             return res.status(403).json({ error: "Access Denied: User belongs to a different society." });
         }
 
+        // ✅ BUG-01 FIX: Actually update the user status to 'rejected'
+        await userRef.update({
+            status: "rejected",
+            rejectedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+            rejectedBy: req.user.uid,
+        });
+
         await db.collection("notifications").add({
             type: "registration_rejected",
             title: "Registration not approved",
@@ -445,11 +452,11 @@ router.get("/notifications", authMiddleware, async (req, res) => {
         const societyId = req.user.society_id;
         let snap;
 
-        if (["admin", "superadmin", "main_admin", "treasurer", "secretary"].includes(req.user.role)) {
+        if (["superadmin", "main_admin", "treasurer", "secretary"].includes(req.user.role)) {
             // ❗ SEC FIX: Multi-tenant assertion
             snap = await db
                 .collection("notifications")
-                .where("targetRole", "==", "admin")
+                .where("targetRole", "==", "main_admin")
                 .where("society_id", "==", societyId)
                 .orderBy("createdAt", "desc")
                 .limit(30)
@@ -481,9 +488,13 @@ router.patch("/notifications/:id/read", authMiddleware, async (req, res) => {
 
         if (!doc.exists) return res.status(404).json({ error: "Notification not found" });
 
-        // SECURITY: Ensure user only marks their own or their society's admin notifications
+        // ✅ BUG-06 FIX: Correct ownership check — user must own the notification OR be an admin in the same society
         const data = doc.data();
-        if (data.targetUserId !== req.user.uid && data.society_id !== req.user.society_id) {
+        const isOwner = data.targetUserId === req.user.uid;
+        const isAdmin = ["main_admin", "superadmin", "secretary"].includes(req.user.role) && data.society_id === req.user.society_id;
+
+        if (!isOwner && !isAdmin) {
+            logger.warn({ userId: req.user.uid, notificationId: req.params.id }, "SEC-WARN: Unauthorized notification mark-read attempt");
             return res.status(403).json({ error: "Unauthorized access to notification" });
         }
 

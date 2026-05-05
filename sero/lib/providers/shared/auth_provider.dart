@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/services/api_service.dart';
+import 'package:sero/services/auth_service.dart';
 import 'package:sero/models/user.dart';
 
 final authProvider = StateNotifierProvider<AuthNotifier, AsyncValue<UserModel?>>((ref) {
@@ -41,9 +42,22 @@ class AuthNotifier extends StateNotifier<AsyncValue<UserModel?>> {
         'password': password,
       });
       final data = jsonDecode(res.body);
+
       if (res.statusCode == 200) {
-        await ApiService.saveToken(data['token']);
+        // ✅ BUG-03 FIX: Save both access AND refresh tokens on login
+        await AuthService.saveTokens(
+          token: data['token'],
+          refreshToken: data['refreshToken'] ?? '',
+        );
         state = AsyncValue.data(UserModel.fromMap(data['user']));
+
+      } else if (res.statusCode == 403) {
+        // ✅ BUG-20 FIX: Distinguish 403 (pending/rejected) from 401 (wrong credentials)
+        final status = data['status'] ?? 'pending';
+        final msg = status == 'rejected'
+            ? 'Your registration was rejected by the admin.'
+            : 'Your account is pending admin approval.';
+        throw msg;
       } else {
         throw data['error'] ?? 'Login failed';
       }

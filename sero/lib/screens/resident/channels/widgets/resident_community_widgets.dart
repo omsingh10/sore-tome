@@ -8,6 +8,7 @@ import 'package:sero/models/event.dart';
 import 'package:sero/providers/shared/auth_provider.dart';
 import 'package:sero/providers/shared/community_providers.dart';
 import 'package:sero/providers/shared/notices_provider.dart';
+import 'package:sero/providers/shared/events_provider.dart';
 
 // --- 1. AI Daily Pulse (Briefing) ---
 class DailyPulseWidget extends ConsumerWidget {
@@ -17,7 +18,7 @@ class DailyPulseWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final noticesAsync = ref.watch(noticesStreamProvider);
     final pollsAsync = ref.watch(pollsProvider);
-    final eventsAsync = ref.watch(communityEventsProvider);
+    final eventsAsync = ref.watch(eventsProvider);
     final directPulseAsync = ref.watch(directPulseProvider);
 
     String briefing = 'Sero AI is analyzing community activity...';

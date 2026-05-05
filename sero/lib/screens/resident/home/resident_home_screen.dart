@@ -13,6 +13,11 @@ import 'package:sero/providers/shared/community_providers.dart';
 import 'package:sero/models/guest_pass.dart';
 import '../../shared/profile/profile_screen.dart';
 import 'package:sero/widgets/shared/shimmer_skeleton.dart';
+import '../facilities/facilities_screen.dart';
+import '../polls/polls_screen.dart';
+import '../voice/voice_mode_screen.dart';
+import '../visitors/visitor_approval_screen.dart';
+import '../funds/resident_funds_screen.dart';
 
 
 class ResidentHomeScreen extends ConsumerStatefulWidget {
@@ -42,6 +47,12 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VoiceModeScreen())),
+        backgroundColor: const Color(0xFF0F172A),
+        icon: const Icon(Icons.mic, color: kPrimaryGreen),
+        label: Text('VOICE MODE', style: GoogleFonts.outfit(fontWeight: FontWeight.w700, color: Colors.white)),
+      ).animate().scale(delay: 1.seconds, duration: 500.ms, curve: Curves.elasticOut),
       body: Column(
         children: [
           _buildTopBar(user),
@@ -69,7 +80,34 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
                   const SizedBox(height: 6),
                   _buildGuestGate(),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 24),
+
+                  // --- NEW PHASE 3 QUICK ACTIONS ---
+                  _sectionLabel('Quick Actions'),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _quickActionButton(
+                          'Book Amenity',
+                          Icons.pool_rounded,
+                          kPrimaryBlue,
+                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FacilitiesScreen())),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _quickActionButton(
+                          'Digital Polls',
+                          Icons.how_to_vote_rounded,
+                          kPrimaryGreen,
+                          () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PollsScreen())),
+                        ),
+                      ),
+                    ],
+                  ),
+
+                  const SizedBox(height: 24),
 
                   _sectionLabel('Society Pulse'),
                   const SizedBox(height: 6),
@@ -210,9 +248,11 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
                 ],
               ),
               ElevatedButton(
-                onPressed: () {
-                  // Navigate to Pre-approve Screen
-                },
+                // ✅ BUG-09 FIX: Navigate to VisitorApprovalScreen to manage visitor entries
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const VisitorApprovalScreen()),
+                ),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: kPrimaryGreen,
                   foregroundColor: Colors.white,
@@ -305,6 +345,13 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
   }
 
   Widget _buildQuickPayBanner(double balance) {
+    // ✅ BUG-12 FIX: Derive current month name dynamically instead of hardcoding
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    final currentMonth = monthNames[DateTime.now().month - 1];
+
     return Container(
       margin: const EdgeInsets.only(bottom: 20, left: 4, right: 4),
       padding: const EdgeInsets.all(16),
@@ -334,16 +381,18 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
                   style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.w700, color: const Color(0xFF0F172A)),
                 ),
                 Text(
-                  'Maintenance for April is pending',
+                  'Maintenance for $currentMonth is pending',
                   style: GoogleFonts.outfit(fontSize: 12, color: const Color(0xFF64748B)),
                 ),
               ],
             ),
           ),
           ElevatedButton(
-            onPressed: () {
-              // Navigate to Funds section or payment gate
-            },
+            // ✅ BUG-09 FIX: Navigate to ResidentFundsScreen to complete payment
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const ResidentFundsScreen()),
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: kPrimaryGreen,
               foregroundColor: Colors.white,
@@ -448,6 +497,34 @@ class _ResidentHomeScreenState extends ConsumerState<ResidentHomeScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _quickActionButton(String label, IconData icon, Color color, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: color.withValues(alpha: 0.1)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: color, size: 28),
+            const SizedBox(height: 10),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: const Color(0xFF0F172A),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

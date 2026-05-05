@@ -18,7 +18,7 @@ function authMiddleware(req, res, next) {
       uid: decoded.uid,
       phone: decoded.phone,
       name: decoded.name,
-      role: decoded.role, // "resident" | "admin" | "superadmin"
+      role: decoded.role, // "resident" | "main_admin" | "superadmin" | "treasurer" | "secretary"
       society_id: decoded.society_id,
     };
     next();
@@ -37,7 +37,7 @@ const { logger } = require("../src/shared/Logger");
 // Only allow admins and superadmins (legacy helper)
 function adminOnly(req, res, next) {
   const role = req.user?.role;
-  const isAuthorized = role === "admin" || role === "superadmin" || role === "main_admin";
+  const isAuthorized = role === "superadmin" || role === "main_admin";
   
   if (!isAuthorized) {
     logger.warn({ userId: req.user?.uid, role, path: req.path }, "SEC-WARN: Unauthorized Admin Access Attempt");

@@ -38,13 +38,23 @@ router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
 router.get("/transactions", authMiddleware, tenantMiddleware, async (req, res) => {
   const ip = req.ip || req.headers["x-forwarded-for"] || "unknown";
   try {
+    const { cursor, limit = 30 } = req.query;
     const db = getDb();
-    const snap = await db
+    
+    let query = db
       .collection("transactions")
       .where("society_id", "==", req.societyId)
-      .orderBy("createdAt", "desc")
-      .limit(30)
-      .get();
+      .orderBy("createdAt", "desc");
+      
+    if (cursor) {
+      // Find the document to start after
+      const cursorDoc = await db.collection("transactions").doc(cursor).get();
+      if (cursorDoc.exists) {
+        query = query.startAfter(cursorDoc);
+      }
+    }
+    
+    const snap = await query.limit(Number(limit)).get();
 
     const transactions = snap.docs.map((doc) => {
       const data = doc.data();
@@ -54,7 +64,11 @@ router.get("/transactions", authMiddleware, tenantMiddleware, async (req, res) =
         createdAt: data.createdAt ? data.createdAt.toDate().toISOString() : null,
       };
     });
-    res.json({ transactions });
+    
+    const hasMore = snap.docs.length === Number(limit);
+    const nextCursor = hasMore ? snap.docs[snap.docs.length - 1].id : null;
+
+    res.json({ transactions, hasMore, nextCursor });
   } catch (err) {
     logger.error({ ip, error: err.message }, "Error fetching transactions");
     res.status(500).json({ error: "Internal server error" });
@@ -304,14 +318,22 @@ router.post("/payments/verify", authMiddleware, tenantMiddleware, async (req, re
       });
     }
 
+    // ✅ BUG-02 FIX: Use gateway-verified amount, NOT client-supplied amount
+    // verifiedAmount comes from Razorpay's own API after signature check
+    if (!verification.verifiedAmount) {
+      // Gateway fetch failed (e.g. test mode / network issue) — fall back but log a security warning
+      logger.warn({ userId: req.user.uid, bodyAmount: req.body.amount }, 'SEC-WARN: Could not verify amount from gateway; using client-supplied amount as fallback');
+    }
+    const recordedAmount = verification.verifiedAmount ?? Number(req.body.amount);
+
     // On success: Create transaction record
-    const { amount, title, category } = req.body;
+    const { title, category } = req.body;
     const db = getDb();
     
     const docData = {
       society_id: req.societyId,
       title: title || "Maintenance Payment",
-      amount: Number(amount),
+      amount: recordedAmount,
       type: "credit",
       category: category || "maintenance",
       note: `Gateway: ${provider.name} | ID: ${verification.transactionId}`,
@@ -337,6 +359,83 @@ router.post("/payments/verify", authMiddleware, tenantMiddleware, async (req, re
   } catch (err) {
     logger.error({ error: err.message }, "Payment Verification Logic Failed");
     res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /payments/webhook
+router.post("/payments/webhook", async (req, res) => {
+  try {
+    const signature = req.headers["x-razorpay-signature"];
+    if (!signature || !req.rawBody) {
+      logger.warn({ ip: req.ip }, "SEC-ALERT: Webhook missing signature or raw body");
+      return res.status(400).send("Bad Request");
+    }
+
+    const secret = process.env.RAZORPAY_WEBHOOK_SECRET || "placeholder_webhook_secret";
+    
+    // Verify HMAC
+    const crypto = require("crypto");
+    const expectedSignature = crypto
+      .createHmac("sha256", secret)
+      .update(req.rawBody)
+      .digest("hex");
+
+    if (expectedSignature !== signature) {
+      logger.warn({ ip: req.ip, signature }, "SEC-ALERT: Invalid Razorpay webhook signature");
+      return res.status(400).send("Invalid signature");
+    }
+
+    // Parse event
+    const event = req.body;
+    const eventId = event.id; // Razorpay webhook event ID
+    
+    // Idempotency check
+    const db = getDb();
+    const webhookDoc = await db.collection("processed_webhooks").doc(eventId).get();
+    if (webhookDoc.exists) {
+      return res.status(200).send("Already processed");
+    }
+
+    // Process event
+    if (event.event === "payment.captured" || event.event === "order.paid") {
+      const paymentEntity = event.payload.payment.entity;
+      const paymentId = paymentEntity.id;
+      const amount = paymentEntity.amount / 100; // Convert subunits
+      
+      // We look up the transaction by transactionId to see if it was already processed synchronously
+      const transSnap = await db.collection("transactions").where("transactionId", "==", paymentId).get();
+      if (transSnap.empty) {
+        // If we attached society_id and user_id to notes, we could create it here.
+        // For MVP, we log it so admin can manually reconcile, or we extract from notes.
+        const notes = paymentEntity.notes || {};
+        if (notes.society_id) {
+          await db.collection("transactions").add({
+            society_id: notes.society_id,
+            title: "Webhook Payment Capture",
+            amount: Number(amount),
+            type: "credit",
+            category: "maintenance",
+            note: `Gateway: razorpay | ID: ${paymentId}`,
+            transactionId: paymentId,
+            addedBy: notes.user_id || "system",
+            createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+          });
+        } else {
+          logger.warn({ paymentId }, "Webhook received but no society_id in notes to create transaction.");
+        }
+      }
+    }
+
+    // Mark as processed
+    await db.collection("processed_webhooks").doc(eventId).set({
+      processedAt: getAdmin().firestore.FieldValue.serverTimestamp(),
+      event: event.event
+    });
+
+    res.status(200).send("OK");
+  } catch (err) {
+    logger.error({ error: err.message }, "Webhook Processing Error");
+    res.status(500).send("Internal Server Error");
   }
 });
 

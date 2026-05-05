@@ -160,18 +160,17 @@ export class AIToolService {
    * ❗ PRO FIX: Reads from precomputed aggregate doc instead of scanning collections.
    */
   public async getSocietyStats(societyId: string) {
-    const targetSocietyId = societyId;
-    this.assertSocietyMatch(targetSocietyId, societyId);
-
+    // ✅ BUG-16 FIX: Removed self-assertion (assertSocietyMatch(societyId, societyId) always passes)
+    // Callers already go through tenantMiddleware which enforces society_id on req
     const db = getDb();
-    const statsDoc = await db.collection("society_stats").doc(targetSocietyId).get();
+    const statsDoc = await db.collection("society_stats").doc(societyId).get();
 
     if (statsDoc.exists) {
        return statsDoc.data();
     }
 
-    // Fallback: Sync manually if doc doesn't exists (first run)
-    return await this.syncSocietyStats(targetSocietyId);
+    // Fallback: Sync manually if doc doesn't exist (first run)
+    return await this.syncSocietyStats(societyId);
   }
 
   /**
@@ -218,11 +217,8 @@ export class AIToolService {
    * AI V3.11: Proactive Society Digest Aggregator
    */
   public async getSocietyDigest(societyId: string) {
-    const targetSocietyId = societyId;
-    // ❗ PRO FIX: Tenant Assertion
-    this.assertSocietyMatch(targetSocietyId, societyId);
-
-    const cacheKey = `ai:digest:${targetSocietyId}`;
+    // ✅ BUG-16 FIX: Removed self-assertion
+    const cacheKey = `ai:digest:${societyId}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached);
 
@@ -272,11 +268,8 @@ export class AIToolService {
    * AI V3.10: Financial Analysis Tool with Redis caching.
    */
   public async analyzeExpenses(societyId: string) {
-    const targetSocietyId = societyId;
-    // ❗ PRO FIX: Tenant Assertion
-    this.assertSocietyMatch(targetSocietyId, societyId);
-
-    const cacheKey = `ai:finance:${targetSocietyId}`;
+    // ✅ BUG-16 FIX: Removed self-assertion
+    const cacheKey = `ai:finance:${societyId}`;
     const cached = await this.redis.get(cacheKey);
     if (cached) return JSON.parse(cached);
 

@@ -81,7 +81,7 @@ router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
 // POST /channels (Admin only, Scoped to societyId)
 router.post("/", authMiddleware, tenantMiddleware, mainAdminOnly, async (req, res) => {
   try {
-    const { name, description, isReadOnly = false, allowedRoles = ["resident", "admin"] } = req.body;
+    const { name, description, isReadOnly = false, allowedRoles = ["resident", "main_admin"] } = req.body;
     if (!name) return res.status(400).json({ error: "name is required" });
 
     const db = getDb();

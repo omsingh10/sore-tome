@@ -3,6 +3,7 @@ const router = express.Router();
 const { getDb, getAdmin } = require("../config/firebase");
 const { authMiddleware, canManageContent } = require("../middleware/auth");
 const { tenantMiddleware } = require("../middleware/tenantMiddleware");
+const { AuditLogService } = require("../src/services/AuditLogService");
 
 // GET /events — upcoming events (Partitioned)
 router.get("/", authMiddleware, tenantMiddleware, async (req, res) => {
@@ -38,6 +39,13 @@ router.post("/", authMiddleware, tenantMiddleware, canManageContent, async (req,
       createdBy: req.user.uid,
       createdAt: getAdmin().firestore.FieldValue.serverTimestamp(),
     });
+    
+    // Log the action
+    await AuditLogService.getInstance().logAdminAction(
+      req.user,
+      "Event Created",
+      `Created event: "${title}"`
+    );
 
     res.status(201).json({ id: docRef.id, message: "Event created" });
   } catch (err) {
@@ -57,6 +65,14 @@ router.delete("/:id", authMiddleware, tenantMiddleware, canManageContent, async 
     }
 
     await docRef.delete();
+    
+    // Log the action
+    await AuditLogService.getInstance().logAdminAction(
+      req.user,
+      "Event Deleted",
+      `Deleted event ID: ${req.params.id}`
+    );
+
     res.json({ message: "Event deleted" });
   } catch (err) {
     res.status(500).json({ error: err.message });

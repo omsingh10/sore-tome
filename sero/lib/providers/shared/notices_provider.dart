@@ -8,13 +8,13 @@ import 'package:sero/providers/shared/auth_provider.dart';
 
 import 'package:sero/services/local_database_service.dart';
 
-final noticesStreamProvider = StreamProvider<List<Notice>>((ref) {
+final noticesStreamProvider = StreamProvider.autoDispose<List<Notice>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
   return FirestoreService().getNoticesStream(user.societyId);
 });
 
-final noticesProvider = StateNotifierProvider<NoticesNotifier, AsyncValue<List<Notice>>>((ref) {
+final noticesProvider = StateNotifierProvider.autoDispose<NoticesNotifier, AsyncValue<List<Notice>>>((ref) {
   final user = ref.watch(authProvider).value;
   return NoticesNotifier(user?.societyId);
 });

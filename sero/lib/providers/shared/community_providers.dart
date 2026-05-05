@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/models/community.dart';
-import 'package:sero/models/event.dart';
 import 'package:sero/models/classified_item.dart';
 import 'package:sero/models/interest_profile.dart';
 import 'package:sero/models/facility_booking.dart';
@@ -12,7 +11,7 @@ import 'package:sero/models/society_record.dart';
 import 'package:sero/providers/shared/auth_provider.dart';
 
 // --- Visitor & Guest Gate Providers ---
-final activeGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
+final activeGuestPassesProvider = StreamProvider.autoDispose<List<GuestPass>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
   
@@ -27,7 +26,7 @@ final activeGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
           .toList());
 });
 
-final allTodayGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
+final allTodayGuestPassesProvider = StreamProvider.autoDispose<List<GuestPass>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
   
@@ -45,7 +44,7 @@ final allTodayGuestPassesProvider = StreamProvider<List<GuestPass>>((ref) {
 });
 
 // --- Pulse Providers ---
-final directPulseProvider = StreamProvider<Pulse?>((ref) {
+final directPulseProvider = StreamProvider.autoDispose<Pulse?>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value(null);
 
@@ -61,7 +60,7 @@ final directPulseProvider = StreamProvider<Pulse?>((ref) {
 });
 
 // --- Facility & Booking Providers ---
-final facilitiesProvider = StreamProvider<List<Facility>>((ref) {
+final facilitiesProvider = StreamProvider.autoDispose<List<Facility>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -74,7 +73,7 @@ final facilitiesProvider = StreamProvider<List<Facility>>((ref) {
           .toList());
 });
 
-final userBookingsProvider = StreamProvider<List<Booking>>((ref) {
+final userBookingsProvider = StreamProvider.autoDispose<List<Booking>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -90,7 +89,7 @@ final userBookingsProvider = StreamProvider<List<Booking>>((ref) {
 });
 
 // --- Marketplace Provider ---
-final marketplaceProvider = StreamProvider<List<ClassifiedItem>>((ref) {
+final marketplaceProvider = StreamProvider.autoDispose<List<ClassifiedItem>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -110,7 +109,7 @@ final marketplaceProvider = StreamProvider<List<ClassifiedItem>>((ref) {
 });
 
 // --- Discovery Provider ---
-final discoveryProvider = StreamProvider<List<InterestProfile>>((ref) {
+final discoveryProvider = StreamProvider.autoDispose<List<InterestProfile>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -124,7 +123,7 @@ final discoveryProvider = StreamProvider<List<InterestProfile>>((ref) {
 });
 
 // --- Polls Provider ---
-final pollsProvider = StreamProvider<List<Poll>>((ref) {
+final pollsProvider = StreamProvider.autoDispose<List<Poll>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -143,27 +142,10 @@ final pollsProvider = StreamProvider<List<Poll>>((ref) {
   });
 });
 
-// --- Events Provider ---
-final communityEventsProvider = StreamProvider<List<SocietyEvent>>((ref) {
-  final user = ref.watch(authProvider).value;
-  if (user == null) return Stream.value([]);
-
-  return FirebaseFirestore.instance
-      .collection('events')
-      .where('society_id', isEqualTo: user.societyId)
-      .snapshots()
-      .map((snapshot) {
-    final events = snapshot.docs
-        .map((doc) => SocietyEvent.fromMap({...doc.data(), 'id': doc.id}))
-        .toList();
-    // Sort client-side to avoid needing a composite index
-    events.sort((a, b) => a.eventDate.compareTo(b.eventDate));
-    return events;
-  });
-});
+// --- Events Provider (DEPRECATED: Use eventsProvider in events_provider.dart) ---
 
 // --- Committee Provider ---
-final committeeProvider = StreamProvider<List<CommitteeMember>>((ref) {
+final committeeProvider = StreamProvider.autoDispose<List<CommitteeMember>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -177,7 +159,7 @@ final committeeProvider = StreamProvider<List<CommitteeMember>>((ref) {
 });
 
 // --- Society Operations Providers (Phase 15) ---
-final allIssuesStreamProvider = StreamProvider<List<Issue>>((ref) {
+final allIssuesStreamProvider = StreamProvider.autoDispose<List<Issue>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -192,7 +174,7 @@ final allIssuesStreamProvider = StreamProvider<List<Issue>>((ref) {
       });
 });
 
-final societyRecordsProvider = StreamProvider<List<SocietyRecord>>((ref) {
+final societyRecordsProvider = StreamProvider.autoDispose<List<SocietyRecord>>((ref) {
   final user = ref.watch(authProvider).value;
   if (user == null) return Stream.value([]);
 
@@ -244,13 +226,7 @@ class CommunityActions {
   }
 
   static Future<void> addEvent(String title, String description, DateTime date, String location, String societyId) async {
-    await FirebaseFirestore.instance.collection('events').add({
-      'society_id': societyId,
-      'title': title,
-      'description': description,
-      'eventDate': date.toIso8601String(),
-      'location': location,
-    });
+    // DEPRECATED: Use EventsNotifier.addEvent instead for API consistency
   }
 
   static Future<void> addCommitteeMember(String name, String role, String societyId, {String? avatarUrl, String? phone}) async {

@@ -130,11 +130,11 @@ export class AIQueueService {
             await this.handleIngestion(job, context);
             break;
           case "OCR_PROCESSING":
-            // Specialized OCR handling if needed (can also be part of ingestion)
-            break;
+            // ✅ BUG-14 FIX: Throw instead of silently succeeding as a no-op
+            throw new Error("OCR_PROCESSING is not yet implemented as a standalone task. Use DOC_INGESTION which includes OCR fallback.");
           case "BULK_EXTRACTION":
-            // Implement in Phase 5
-            break;
+            // ✅ BUG-14 FIX: Throw instead of silently succeeding as a no-op
+            throw new Error("BULK_EXTRACTION is not yet implemented. This task type is reserved for Phase 5.");
           case "CLEANUP_OLD_DOCS":
             await this.handleCleanup();
             break;

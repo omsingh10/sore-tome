@@ -12,6 +12,8 @@ export interface PaymentVerification {
   success: boolean;
   message: string;
   transactionId?: string;
+  /** Amount in standard currency units (e.g. INR), fetched from gateway — NOT from client */
+  verifiedAmount?: number;
   error?: string;
 }
 

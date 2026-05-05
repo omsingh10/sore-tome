@@ -66,16 +66,28 @@ export class RazorpayProvider extends PaymentProvider {
         .update(razorpay_order_id + '|' + razorpay_payment_id)
         .digest('hex');
 
-      if (expectedSignature === razorpay_signature) {
-        return {
-          success: true,
-          message: 'Payment verified successfully',
-          transactionId: razorpay_payment_id,
-        };
-      } else {
+      if (expectedSignature !== razorpay_signature) {
         logger.warn({ ip: payload.ip, orderId: razorpay_order_id }, 'SEC-ALERT: Invalid Razorpay signature detected');
         return { success: false, message: 'Invalid payment signature' };
       }
+
+      // ✅ BUG-02 FIX: Fetch canonical amount from Razorpay API — never trust client body
+      let verifiedAmount: number | undefined;
+      try {
+        const paymentDetails = await this.instance.payments.fetch(razorpay_payment_id);
+        // Razorpay returns amount in paise (subunits) — convert to INR
+        verifiedAmount = Number(paymentDetails.amount) / 100;
+      } catch (fetchErr: any) {
+        logger.warn({ razorpay_payment_id, error: fetchErr.message }, 'Could not fetch payment details from Razorpay; amount unverified');
+        // verifiedAmount stays undefined — funds.js will handle this
+      }
+
+      return {
+        success: true,
+        message: 'Payment verified successfully',
+        transactionId: razorpay_payment_id,
+        verifiedAmount,
+      };
     } catch (error: any) {
       logger.error({ error: error.message }, 'Razorpay Verification Failed');
       return { success: false, message: 'Verification process failed', error: error.message };

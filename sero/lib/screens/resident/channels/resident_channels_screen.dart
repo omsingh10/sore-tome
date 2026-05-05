@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:sero/providers/shared/channels_provider.dart';
 import 'package:sero/providers/shared/community_providers.dart';
+import 'package:sero/providers/shared/events_provider.dart';
 import 'package:sero/widgets/shared/branding_header.dart';
 import 'package:sero/app/theme.dart';
 import '../../shared/channels/channel_chat_screen.dart';
@@ -107,7 +108,7 @@ class _ResidentChannelsScreenState extends ConsumerState<ResidentChannelsScreen>
     return Consumer(
       builder: (context, ref, _) {
         final polls = ref.watch(pollsProvider).value ?? [];
-        final events = ref.watch(communityEventsProvider).value ?? [];
+        final events = ref.watch(eventsProvider).value ?? [];
         
         if (polls.isEmpty && events.isEmpty) return const SliverToBoxAdapter(child: SizedBox.shrink());
 

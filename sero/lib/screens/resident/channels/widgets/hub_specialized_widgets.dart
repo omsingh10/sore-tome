@@ -6,6 +6,7 @@ import 'package:sero/app/theme.dart';
 import 'package:sero/models/classified_item.dart';
 import 'package:sero/models/interest_profile.dart';
 import 'package:sero/providers/shared/community_providers.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 
 // --- 1. Marketplace View ---
 class MarketplaceView extends ConsumerWidget {
@@ -172,28 +173,78 @@ class DiscoveryView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profilesAsync = ref.watch(discoveryProvider);
+    final user = ref.watch(authProvider).value;
+    final isAdmin = user != null && ['admin', 'main_admin', 'secretary'].contains(user.role);
 
     return profilesAsync.when(
       data: (profiles) {
-        if (profiles.isEmpty) {
-          return const SliverFillRemaining(child: Center(child: Text('Join the directory to meet neighbors!')));
-        }
         return SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           sliver: SliverList(
-            delegate: SliverChildBuilderDelegate(
-              (context, index) {
-                final p = profiles[index];
-                return _DiscoveryCard(profile: p).animate().fade(delay: (index * 50).ms).slideX(begin: 0.1);
-              },
-              childCount: profiles.length,
-            ),
+            delegate: SliverChildListDelegate([
+              if (isAdmin) _buildAdminAICard(context),
+              const SizedBox(height: 16),
+              if (profiles.isEmpty)
+                const Center(child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 40),
+                  child: Text('Join the directory to meet neighbors!'),
+                ))
+              else
+                ...profiles.map((p) => _DiscoveryCard(profile: p).animate().fade().slideX(begin: 0.1)),
+            ]),
           ),
         );
       },
       loading: () => const SliverFillRemaining(child: Center(child: CircularProgressIndicator())),
       error: (e, _) => SliverFillRemaining(child: Center(child: Text('Error: $e'))),
     );
+  }
+
+  Widget _buildAdminAICard(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(28),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.psychology_outlined, color: kAccentGreen, size: 24),
+              const SizedBox(width: 12),
+              Text(
+                'SERO AI KNOWLEDGE',
+                style: GoogleFonts.outfit(
+                  color: kAccentGreen,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Train Sero on your society rules and bylaws to provide accurate answers to residents.',
+            style: GoogleFonts.outfit(color: Colors.white, fontSize: 14, height: 1.5),
+          ),
+          const SizedBox(height: 20),
+          ElevatedButton.icon(
+            onPressed: () {}, // File picker logic
+            icon: const Icon(Icons.upload_file_rounded, size: 18),
+            label: const Text('UPLOAD PDF BYLAWS'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.white.withValues(alpha: 0.1),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    ).animate().fadeIn().slideY(begin: 0.1);
   }
 }
 

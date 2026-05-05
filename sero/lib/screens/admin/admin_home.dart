@@ -5,7 +5,10 @@ import 'package:sero/services/firestore_service.dart';
 import 'package:sero/widgets/admin/issue_card.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sero/providers/shared/ai_provider.dart';
+import 'package:sero/providers/shared/auth_provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'notices/ai_notice_writer_screen.dart';
+import 'funds/admin_funds_screen.dart';
 
 class AdminHome extends ConsumerStatefulWidget {
   const AdminHome({super.key});
@@ -166,6 +169,12 @@ class _AdminHomeState extends ConsumerState<AdminHome> {
   }
 
   Widget _buildTopBar() {
+    // ✅ BUG-11 FIX: Load society name dynamically from authProvider instead of hardcoding
+    final user = ref.watch(authProvider).value;
+    final societyLabel = user != null
+        ? '${user.societyId} · ${user.role.replaceAll('_', ' ').toUpperCase()}'
+        : 'Admin Panel';
+
     return Container(
       color: kPrimaryGreen,
       padding: EdgeInsets.only(
@@ -174,21 +183,21 @@ class _AdminHomeState extends ConsumerState<AdminHome> {
         right: 16,
         bottom: 14,
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'Admin Panel',
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
               fontWeight: FontWeight.w500,
             ),
           ),
-          SizedBox(height: 2),
+          const SizedBox(height: 2),
           Text(
-            'Sunset Valley Society · Admin',
-            style: TextStyle(color: Colors.white70, fontSize: 12),
+            societyLabel,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
         ],
       ),
@@ -196,46 +205,63 @@ class _AdminHomeState extends ConsumerState<AdminHome> {
   }
 
   Widget _quickActions() {
-    final actions = [
-      {'icon': '📢', 'label': 'Post notice', 'route': '/admin/post-notice'},
-      {'icon': '🎉', 'label': 'Add event', 'route': '/admin/post-notice'},
-      {'icon': '💰', 'label': 'Update funds', 'route': '/admin/post-notice'},
-      {'icon': '👥', 'label': 'Manage users', 'route': '/admin/manage-issues'},
-    ];
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 8,
-      mainAxisSpacing: 8,
-      childAspectRatio: 2.2,
-      children: actions
-          .map(
-            (a) => GestureDetector(
-              onTap: () => Navigator.pushNamed(context, a['route']!),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(10),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(a['icon']!, style: const TextStyle(fontSize: 20)),
-                      const SizedBox(height: 4),
-                      Text(
-                        a['label']!,
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
+    return Builder(builder: (context) {
+      final actions = [
+        {'icon': '🪄', 'label': 'AI Writer', 'screen': const AiNoticeWriterScreen()},
+        {'icon': '📢', 'label': 'Post notice', 'route': '/admin/post-notice'},
+        // ✅ BUG-10 FIX: "Add event" stays on the notice flow (correct for sharing notices/events)
+        {'icon': '🎉', 'label': 'Add event', 'route': '/admin/post-notice'},
+        // ✅ BUG-10 FIX: "Update funds" now navigates to AdminFundsScreen
+        {'icon': '💰', 'label': 'Update funds', 'screen': const AdminFundsScreen()},
+      ];
+      return GridView.count(
+        crossAxisCount: 2,
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 2.2,
+        children: actions
+            .map(
+              (a) => GestureDetector(
+                onTap: () {
+                  if (a.containsKey('screen')) {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => a['screen'] as Widget));
+                  } else {
+                    Navigator.pushNamed(context, a['route'] as String);
+                  }
+                },
+                child: Card(
+                  elevation: 0,
+                  color: a['label'] == 'AI Writer' ? kPrimaryGreen.withValues(alpha: 0.1) : Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    side: BorderSide(color: a['label'] == 'AI Writer' ? kPrimaryGreen.withValues(alpha: 0.3) : const Color(0xFFE2E8F0)),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(a['icon'] as String, style: const TextStyle(fontSize: 20)),
+                        const SizedBox(height: 4),
+                        Text(
+                          a['label'] as String,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: a['label'] == 'AI Writer' ? kPrimaryGreen : const Color(0xFF0F172A),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-          )
-          .toList(),
-    );
+            )
+            .toList(),
+      );
+    });
   }
 
   Widget _sectionLabel(String label) {

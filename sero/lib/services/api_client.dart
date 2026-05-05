@@ -71,15 +71,15 @@ class ApiClient {
   ) async {
     switch (method.toUpperCase()) {
       case 'GET':
-        return await http.get(url, headers: headers);
+        return await http.get(url, headers: headers).timeout(const Duration(seconds: 15));
       case 'POST':
-        return await http.post(url, headers: headers, body: jsonEncode(body));
+        return await http.post(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 15));
       case 'PUT':
-        return await http.put(url, headers: headers, body: jsonEncode(body));
+        return await http.put(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 15));
       case 'DELETE':
-        return await http.delete(url, headers: headers);
+        return await http.delete(url, headers: headers).timeout(const Duration(seconds: 15));
       case 'PATCH':
-        return await http.patch(url, headers: headers, body: jsonEncode(body));
+        return await http.patch(url, headers: headers, body: jsonEncode(body)).timeout(const Duration(seconds: 15));
       default:
         throw Exception('Method $method not supported');
     }

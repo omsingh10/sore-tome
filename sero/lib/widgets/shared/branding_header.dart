@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:sero/app/theme.dart';
+import 'package:sero/screens/resident/visitors/visitor_approval_screen.dart';
 import 'brand_logo.dart';
 
 class BrandingHeader extends StatelessWidget {
@@ -46,6 +47,17 @@ class BrandingHeader extends StatelessWidget {
             ),
             Row(
               children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const VisitorApprovalScreen()));
+                  },
+                  child: const Icon(
+                    Icons.security_rounded, // Gate icon
+                    color: Color(0xFF64748B),
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
                 GestureDetector(
                   onTap: onNotificationsTap,
                   child: const Icon(
